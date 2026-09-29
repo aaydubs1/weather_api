@@ -1,8 +1,9 @@
 import os
 
 # Configure the app for tests BEFORE importing anything that reads settings.
+# Use a temp DB outside the project tree so tests never touch real data.
 os.environ.setdefault("AEMET_API_KEY", "test-key")
-os.environ["DATABASE_URL"] = "sqlite:///./test_cache.db"
+os.environ["DATABASE_URL"] = "sqlite:////tmp/weather_api_test.db"
 
 import pytest  # noqa: E402
 from app.db import Base, engine  # noqa: E402

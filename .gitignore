@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+# Databases / local artifacts
+*.db
+*.db-journal
+*.sqlite3
+# Env
+.env
+# Node / frontend
+node_modules/
+dist/
+# OS
+.DS_Store
