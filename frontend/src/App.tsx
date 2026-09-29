@@ -3,6 +3,8 @@ import { fetchData, fetchStations } from "./api";
 import { QueryForm } from "./components/QueryForm";
 import { ResultsChart } from "./components/ResultsChart";
 import { ResultsTable } from "./components/ResultsTable";
+import { SummaryCards } from "./components/SummaryCards";
+import { summarize } from "./summary";
 import type { ApiResponse, QueryParams, Station } from "./types";
 
 export function App() {
@@ -29,6 +31,8 @@ export function App() {
     }
   }
 
+  const hasData = !loading && !error && result && result.count > 0;
+
   return (
     <div className="app">
       <header className="header">
@@ -47,20 +51,23 @@ export function App() {
             <p className="hint">No data available for this station and time range.</p>
           )}
 
-          {!loading && !error && result && result.count > 0 && (
+          {hasData && (
             <>
               <div className="results-head">
                 <div className="meta">
-                  <strong>{result.station}</strong>
-                  <span className="badge">{result.aggregation}</span>
-                  <span className="muted">· {result.count} rows · times in {result.timezone}</span>
+                  <strong>{result!.station}</strong>
+                  <span className="badge">{result!.aggregation}</span>
+                  <span className="muted">· {result!.count} rows · times in {result!.timezone}</span>
                 </div>
                 <div className="toggle">
                   <button className={view === "chart" ? "on" : ""} onClick={() => setView("chart")}>Chart</button>
                   <button className={view === "table" ? "on" : ""} onClick={() => setView("table")}>Table</button>
                 </div>
               </div>
-              {view === "chart" ? <ResultsChart result={result} /> : <ResultsTable result={result} />}
+
+              <SummaryCards summaries={summarize(result!)} />
+
+              {view === "chart" ? <ResultsChart result={result!} /> : <ResultsTable result={result!} />}
             </>
           )}
 

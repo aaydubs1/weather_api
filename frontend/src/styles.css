@@ -106,3 +106,97 @@ th, td { padding: 8px 12px; text-align: right; white-space: nowrap; border-botto
 th:first-child, td:first-child { text-align: left; }
 thead th { background: #f8fafc; color: var(--muted); font-weight: 600; position: sticky; top: 0; }
 tbody tr:hover { background: #f9fbfd; }
+
+/* Small-multiple charts (one per measurement) */
+.charts { display: flex; flex-direction: column; gap: 20px; }
+.chart-block { border-top: 1px solid var(--line); padding-top: 10px; }
+.chart-block:first-child { border-top: none; padding-top: 0; }
+.chart-title { margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--ink); }
+
+/* Date range field + calendar popover */
+.form .field { position: relative; }
+.date-field {
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+}
+.date-field:hover { border-color: var(--accent); }
+.backdrop { position: fixed; inset: 0; z-index: 40; }
+.popover {
+  position: absolute;
+  top: 74px;
+  left: 0;
+  z-index: 50;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 10px 12px;
+}
+.popover-actions { display: flex; justify-content: flex-end; }
+.ghost { border: none; background: transparent; color: var(--accent); font-weight: 600; cursor: pointer; padding: 6px 10px; }
+.rdp-root {
+  --rdp-accent-color: #0e7490;
+  --rdp-accent-background-color: #ecfeff;
+  --rdp-day-width: 38px;
+  --rdp-day-height: 38px;
+  font-size: 14px;
+}
+
+/* Measurement pills */
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 13px; border-radius: 999px;
+  border: 1px solid var(--line); background: #fff; color: var(--ink);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+.pill:hover { border-color: var(--accent); background: #f0fbff; }
+.pill .pill-icon { font-size: 15px; line-height: 1; color: var(--accent); }
+.pill.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pill.on:hover { background: #0b5f76; }
+.pill.on .pill-icon { color: #fff; }
+
+/* Summary cards */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.summary-card { border: 1px solid var(--line); border-radius: 14px; padding: 16px; background: #fbfdff; }
+.summary-name { font-size: 13px; font-weight: 600; color: var(--muted); }
+.summary-mean { font-size: 30px; font-weight: 700; color: var(--ink); line-height: 1.1; margin-top: 4px; }
+.summary-unit { font-size: 15px; font-weight: 600; color: var(--muted); margin-left: 4px; }
+.summary-label { font-size: 12px; color: var(--muted); margin: 2px 0 14px; }
+.summary-extremes { display: flex; gap: 10px; }
+.extreme { flex: 1; display: flex; flex-direction: column; gap: 2px; padding: 9px 10px; border-radius: 10px; }
+.extreme.high { background: #fff1ec; }
+.extreme.low { background: #eef6ff; }
+.ex-caption { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+.extreme.high .ex-caption { color: #c2410c; }
+.extreme.low .ex-caption { color: #1d4ed8; }
+.ex-value { font-size: 15px; font-weight: 700; color: var(--ink); }
+.ex-time { font-size: 11px; color: var(--muted); }
+
+/* Responsive: calendar becomes a centered modal on small screens */
+@media (max-width: 640px) {
+  .app { padding: 18px 14px 48px; }
+  .backdrop { background: rgba(15, 34, 51, 0.28); z-index: 55; }
+  .popover {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(92vw, 360px);
+    max-height: 86vh;
+    overflow: auto;
+    z-index: 60;
+  }
+}
