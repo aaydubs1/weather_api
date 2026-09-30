@@ -9,6 +9,34 @@ const MEASUREMENTS: { key: MeasurementKey; label: string }[] = [
   { key: "speed", label: "Wind speed" },
 ];
 
+interface SummerPreset {
+  id: string;
+  label: string;
+  from: Date;
+  to: Date;
+}
+
+/**
+ * The Antarctic bases run summer campaigns (austral summer, Dec–Feb), so the useful
+ * presets are the most recent summer seasons rather than "last 7 days". A season
+ * labelled by its ending year Y spans Dec (Y-1) .. Feb (Y). Computed dynamically.
+ */
+function summerPresets(count = 3): SummerPreset[] {
+  const now = new Date();
+  const latestY = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear();
+  const yy = (n: number) => String(((n % 100) + 100) % 100).padStart(2, "0");
+
+  return Array.from({ length: count }, (_, i) => {
+    const y = latestY - i;
+    const from = new Date(y - 1, 11, 1); // Dec 1, Y-1
+    let to = new Date(y, 1, 28); // Feb 28, Y
+    if (to > now) to = now; // never in the future
+    return { id: `s${y}`, label: `Summer ${yy(y - 1)}/${yy(y)}`, from, to };
+  });
+}
+
+const SUMMERS = summerPresets();
+
 interface Props {
   stations: Station[];
   loading: boolean;
@@ -23,10 +51,10 @@ function toYMD(date: Date): string {
 }
 
 function rangeLabel(range: DateRange | undefined): string {
-  if (!range?.from) return "Select a date range";
+  if (!range?.from) return "Select dates";
   const from = range.from.toLocaleDateString();
   const to = range.to ? range.to.toLocaleDateString() : from;
-  return from === to ? from : `${from}  →  ${to}`;
+  return from === to ? from : `${from} → ${to}`;
 }
 
 function useIsNarrow(query = "(max-width: 640px)"): boolean {
@@ -40,20 +68,41 @@ function useIsNarrow(query = "(max-width: 640px)"): boolean {
   return narrow;
 }
 
+function InfoTip({ text }: { text: string }) {
+  return (
+    <span className="infotip" tabIndex={0} aria-label={text}>
+      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+        <circle className="infotip-circle" cx="8" cy="8" r="7.5" fill="#94a3b8" />
+        <circle cx="8" cy="4.6" r="1" fill="#fff" />
+        <rect x="7.15" y="6.7" width="1.7" height="5" rx="0.85" fill="#fff" />
+      </svg>
+      <span className="infotip-bubble">{text}</span>
+    </span>
+  );
+}
+
+const DATA_INFO =
+  "Data availability: the Antarctic stations report mainly during the austral summer " +
+  "campaigns (Dec–Feb), when the bases are active. Very recent dates may not be published " +
+  "yet. Use a Summer preset for guaranteed data.";
+
 export function QueryForm({ stations, loading, onSubmit }: Props) {
   const [station, setStation] = useState("");
-  const [range, setRange] = useState<DateRange | undefined>({
-    from: new Date(2023, 6, 1),
-    to: new Date(2023, 6, 2),
-  });
+  const [range, setRange] = useState<DateRange | undefined>({ from: SUMMERS[0].from, to: SUMMERS[0].to });
+  const [month, setMonth] = useState<Date>(SUMMERS[0].from);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [aggregation, setAggregation] = useState<Aggregation>("Hourly");
+  const [aggregation, setAggregation] = useState<Aggregation>("Daily");
   const [measurements, setMeasurements] = useState<MeasurementKey[]>(["temperature"]);
   const isNarrow = useIsNarrow();
 
   useEffect(() => {
     if (!station && stations.length) setStation(stations[0].key);
   }, [stations, station]);
+
+  function applyPreset(preset: SummerPreset) {
+    setRange({ from: preset.from, to: preset.to });
+    setMonth(preset.from);
+  }
 
   function toggle(measurement: MeasurementKey) {
     setMeasurements((current) =>
@@ -75,31 +124,42 @@ export function QueryForm({ stations, loading, onSubmit }: Props) {
   }
 
   return (
-    <form className="card form" onSubmit={handleSubmit}>
-      <div className="field">
-        <label htmlFor="station">Station</label>
-        <select id="station" value={station} onChange={(e) => setStation(e.target.value)}>
+    <form className="toolbar" onSubmit={handleSubmit}>
+      <div className="tb-field">
+        <span className="tb-label">Station</span>
+        <select value={station} onChange={(e) => setStation(e.target.value)}>
           {stations.map((s) => (
             <option key={s.key} value={s.key}>{s.name}</option>
           ))}
         </select>
       </div>
 
-      <div className="field">
-        <label>Date range</label>
-        <button type="button" className="date-field" onClick={() => setCalendarOpen((o) => !o)}>
+      <div className="tb-divider" />
+
+      <div className="tb-field grow">
+        <span className="tb-label">Date range <InfoTip text={DATA_INFO} /></span>
+        <button type="button" className="tb-value" onClick={() => setCalendarOpen((o) => !o)}>
           {rangeLabel(range)}
         </button>
         {calendarOpen && (
           <>
             <div className="backdrop" onClick={() => setCalendarOpen(false)} />
             <div className="popover">
+              <div className="presets">
+                {SUMMERS.map((p) => (
+                  <button type="button" key={p.id} className="preset" onClick={() => applyPreset(p)}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
               <DayPicker
                 mode="range"
                 numberOfMonths={isNarrow ? 1 : 2}
-                defaultMonth={range?.from}
+                month={month}
+                onMonthChange={setMonth}
                 selected={range}
                 onSelect={setRange}
+                disabled={{ after: new Date() }}
               />
               <div className="popover-actions">
                 <button type="button" className="ghost" onClick={() => setCalendarOpen(false)}>Done</button>
@@ -109,17 +169,21 @@ export function QueryForm({ stations, loading, onSubmit }: Props) {
         )}
       </div>
 
-      <div className="field">
-        <label htmlFor="aggregation">Time aggregation</label>
-        <select id="aggregation" value={aggregation} onChange={(e) => setAggregation(e.target.value as Aggregation)}>
+      <div className="tb-divider" />
+
+      <div className="tb-field">
+        <span className="tb-label">Aggregation</span>
+        <select value={aggregation} onChange={(e) => setAggregation(e.target.value as Aggregation)}>
           {AGGREGATIONS.map((a) => (
             <option key={a} value={a}>{a}</option>
           ))}
         </select>
       </div>
 
-      <div className="field">
-        <label>Measurements <span className="muted">(none = all)</span></label>
+      <div className="tb-divider" />
+
+      <div className="tb-field grow">
+        <span className="tb-label">Measurements <span className="muted">(none = all)</span></span>
         <div className="pills">
           {MEASUREMENTS.map((m) => {
             const active = measurements.includes(m.key);
@@ -139,8 +203,8 @@ export function QueryForm({ stations, loading, onSubmit }: Props) {
         </div>
       </div>
 
-      <button className="primary" type="submit" disabled={loading || !station}>
-        {loading ? "Querying…" : "Query"}
+      <button className="tb-submit" type="submit" disabled={loading || !station}>
+        {loading ? "…" : "Query"}
       </button>
     </form>
   );

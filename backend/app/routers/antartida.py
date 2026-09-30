@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
@@ -14,6 +15,10 @@ from ..stations import STATIONS, resolve_station
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/antartida", tags=["antartida"])
+
+# AEMET rejects ranges longer than one month, so we fetch in <= 1-month chunks and
+# concatenate. The cache makes repeated chunks cheap.
+_MAX_CHUNK = timedelta(days=28)
 
 
 @router.get("/estaciones", summary="List the selectable stations (for the UI)")
@@ -50,7 +55,12 @@ async def get_datos(
     selected = measurements or list(Measurement)  # empty -> all
 
     try:
-        raw = await get_or_fetch(station.aemet_id, start, end)
+        raw: list[dict] = []
+        cursor = start
+        while cursor < end:
+            chunk_end = min(cursor + _MAX_CHUNK, end)
+            raw.extend(await get_or_fetch(station.aemet_id, cursor, chunk_end))
+            cursor = chunk_end
     except AemetError as exc:
         raise HTTPException(status_code=502, detail=f"AEMET source error: {exc}") from exc
 

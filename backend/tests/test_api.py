@@ -50,3 +50,16 @@ def test_unknown_station_is_rejected():
     with TestClient(app) as client:
         response = client.get(URL.replace("juan_carlos_i", "unknown"))
     assert response.status_code == 422
+
+
+def test_long_range_is_split_into_monthly_chunks(monkeypatch):
+    counter = {"calls": 0}
+    monkeypatch.setattr(cache_module, "fetch_timeseries", _fake_source(counter))
+    long_url = (
+        "/api/antartida/datos/fechaini/2023-01-01T00:00:00"
+        "/fechafin/2023-03-01T00:00:00/estacion/juan_carlos_i"
+    )
+    with TestClient(app) as client:
+        response = client.get(long_url)
+    assert response.status_code == 200
+    assert counter["calls"] >= 2  # a 2-month range must hit AEMET in several <=1-month chunks

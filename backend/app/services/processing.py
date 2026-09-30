@@ -60,6 +60,8 @@ def build_frame(rows: list[dict]) -> pd.DataFrame:
     )
     frame.index = pd.DatetimeIndex(index, name="Datetime")
     frame = frame[~frame.index.isna()].sort_index()
+    # Chunked fetches can repeat a boundary timestamp; keep each instant once.
+    frame = frame[~frame.index.duplicated(keep="first")]
     return frame
 
 

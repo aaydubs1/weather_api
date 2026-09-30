@@ -14,34 +14,28 @@ function formatTime(datetime: string): string {
   return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+/** A thin one-line stats strip per measurement (avg · max · min), above the charts. */
 export function SummaryCards({ summaries }: { summaries: MeasurementSummary[] }) {
   if (!summaries.length) return null;
 
   return (
-    <div className="summary-grid">
+    <div className="stats-strip">
       {summaries.map((s) => {
         const unit = unitOf(s.label);
         return (
-          <div className="summary-card" key={s.label}>
-            <div className="summary-name">{nameOf(s.label)}</div>
-            <div className="summary-mean">
-              {s.mean ?? "—"}
-              <span className="summary-unit">{unit}</span>
-            </div>
-            <div className="summary-label">Average</div>
-
-            <div className="summary-extremes">
-              <div className="extreme high">
-                <span className="ex-caption">Highest</span>
-                <span className="ex-value">{s.highest ? `${s.highest.value} ${unit}` : "—"}</span>
-                {s.highest && <span className="ex-time">{formatTime(s.highest.datetime)}</span>}
-              </div>
-              <div className="extreme low">
-                <span className="ex-caption">Lowest</span>
-                <span className="ex-value">{s.lowest ? `${s.lowest.value} ${unit}` : "—"}</span>
-                {s.lowest && <span className="ex-time">{formatTime(s.lowest.datetime)}</span>}
-              </div>
-            </div>
+          <div className="stat-row" key={s.label}>
+            <span className="stat-name">{nameOf(s.label)}</span>
+            <span className="stat-item">
+              avg <b>{s.mean ?? "—"}{unit}</b>
+            </span>
+            <span className="stat-item high">
+              ▲ <b>{s.highest ? `${s.highest.value}${unit}` : "—"}</b>
+              {s.highest && <span className="stat-time">{formatTime(s.highest.datetime)}</span>}
+            </span>
+            <span className="stat-item low">
+              ▼ <b>{s.lowest ? `${s.lowest.value}${unit}` : "—"}</b>
+              {s.lowest && <span className="stat-time">{formatTime(s.lowest.datetime)}</span>}
+            </span>
           </div>
         );
       })}
