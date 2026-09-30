@@ -1,7 +1,9 @@
 import {
-  Brush, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, Brush, CartesianGrid, ComposedChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import type { DataRow } from "../types";
+
+const gradId = (key: string) => `cg-${key.replace(/[^a-z0-9]/gi, "-")}`;
 
 interface AxisConfig {
   axis: string;
@@ -64,16 +66,24 @@ export function CombinedChart({ rows, labels, aggregated, height = 280 }: { rows
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <LineChart data={rows} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
-        <XAxis dataKey="Datetime" tickFormatter={fmtDate} minTickGap={48} fontSize={11} />
+      <ComposedChart data={rows} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+        <defs>
+          {items.map((it) => (
+            <linearGradient key={it.key} id={gradId(it.key)} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={it.color} stopOpacity={0.18} />
+              <stop offset="100%" stopColor={it.color} stopOpacity={0} />
+            </linearGradient>
+          ))}
+        </defs>
+        <CartesianGrid vertical={false} stroke="#eef2f7" />
+        <XAxis dataKey="Datetime" tickFormatter={fmtDate} minTickGap={48} fontSize={11} tickLine={false} axisLine={false} />
         {items.map((it) => (
-          <YAxis key={it.axis} yAxisId={it.axis} orientation={it.orientation} hide={it.hidden} width={44} fontSize={11} domain={["auto", "auto"]} />
+          <YAxis key={it.axis} yAxisId={it.axis} orientation={it.orientation} hide={it.hidden} width={44} fontSize={11} domain={["auto", "auto"]} tickLine={false} axisLine={false} />
         ))}
         <Tooltip content={<CombinedTooltip />} />
         <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
         {items.map((it) => (
-          <Line
+          <Area
             key={it.key}
             yAxisId={it.axis}
             type="monotone"
@@ -81,12 +91,15 @@ export function CombinedChart({ rows, labels, aggregated, height = 280 }: { rows
             name={nameOf(it.key)}
             stroke={it.color}
             strokeWidth={2}
+            fill={`url(#${gradId(it.key)})`}
+            fillOpacity={1}
             dot={false}
+            activeDot={{ r: 4 }}
             isAnimationActive={false}
           />
         ))}
-        <Brush dataKey="Datetime" height={22} stroke="#94a3b8" travellerWidth={8} tickFormatter={fmtDate} />
-      </LineChart>
+        <Brush className="wx-brush" dataKey="Datetime" height={30} stroke="#cbd5e1" fill="#f1f5f9" travellerWidth={10} gap={1} tickFormatter={fmtDate} />
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }

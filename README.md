@@ -137,8 +137,25 @@ npm run dev
 
 Open <http://localhost:5173>. Pick a station, a date range, an aggregation and the
 measurements, then press **Query**. Results are shown as a **chart** and a **table**
-(toggle between them). The UI has sensible defaults, and explicit loading / empty / error
-states so it is understandable at a glance.
+(toggle between them).
+
+UX highlights (the reasoning is in **DESIGN.md §7**):
+
+- **Skyscanner-style search header** with add/remove measurement pills and one-click
+  **austral-summer presets**, plus an **info tooltip** — because the stations only report
+  in the austral summer, the UI steers you to ranges that actually have data instead of
+  letting you hit an empty result.
+- **Three linked panels** (one per measurement) with a **synchronized cursor** and a shared
+  **range slider**, so you read all measurements at the same instant without cramming
+  different units onto one misleading axis. Any panel enlarges in a lightbox.
+- A **Correlate** action opens the combined multi-axis view on demand (and can fetch the
+  other measurements if only one was queried).
+- The **table** has **sortable columns** (click a header to rank by that field, e.g. highest
+  temperature first) and **virtual scrolling**, so a raw 10-minute query of tens of thousands
+  of rows stays smooth.
+- **Exports:** the table downloads as **CSV / JSON / Excel**, and any chart as **PNG / SVG**.
+- Sensible defaults, explicit loading / empty / error states, units in headers, and the
+  time zone made explicit — timestamps keep the backend's CET/CEST offset verbatim.
 
 ---
 

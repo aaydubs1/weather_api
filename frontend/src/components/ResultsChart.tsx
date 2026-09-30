@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  Brush, CartesianGrid, Legend, Line, LineChart, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, Brush, CartesianGrid, ComposedChart, Legend, Line, LineChart, ReferenceDot,
+  ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import type { ApiResponse, DataRow } from "../types";
+import { DownloadMenu } from "./DownloadMenu";
+import { baseName, downloadChartPNG, downloadChartSVG } from "../download";
 
 const LABELS = ["Temperature (ºC)", "Pressure (hpa)", "Speed (m/s)"];
 const SYNC_ID = "weather";
@@ -13,16 +16,23 @@ interface Series {
   name: string;
   color: string;
   width: number;
+  area: boolean; // draw a soft gradient fill under the line
 }
 
+// Cohesive cool range. Mean (accent teal) is the darkest/primary; Max and Min are both
+// lighter but distinct by hue: Max = soft sky blue, Min = light cool grey.
+const PALETTE = { mean: "#0e7490", max: "#60c5f1", min: "#94a3b8" };
+
 function seriesFor(label: string, aggregated: boolean, first: DataRow): Series[] {
-  if (!aggregated) return [{ key: label, name: "Value", color: "#0e7490", width: 2 }];
+  if (!aggregated) return [{ key: label, name: "Value", color: PALETTE.mean, width: 2, area: true }];
   return [
-    { key: `${label} mean`, name: "Mean", color: "#0e7490", width: 2 },
-    { key: `${label} max`, name: "Max", color: "#f97316", width: 1.5 },
-    { key: `${label} min`, name: "Min", color: "#2563eb", width: 1.5 },
+    { key: `${label} mean`, name: "Mean", color: PALETTE.mean, width: 2, area: true },
+    { key: `${label} max`, name: "Max", color: PALETTE.max, width: 1.75, area: false },
+    { key: `${label} min`, name: "Min", color: PALETTE.min, width: 1.75, area: false },
   ].filter((s) => s.key in first);
 }
+
+const gradId = (key: string) => `wxg-${key.replace(/[^a-z0-9]/gi, "-")}`;
 
 function unitOf(key: string): string {
   const m = key.match(/\(([^)]+)\)/);
@@ -60,10 +70,18 @@ function Panel({ rows, series, height, xTick }: { rows: DataRow[]; series: Serie
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <LineChart data={rows} syncId={SYNC_ID} margin={{ top: 14, right: 20, bottom: 0, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
-        <XAxis dataKey="Datetime" tickFormatter={xTick} minTickGap={44} fontSize={11} height={20} />
-        <YAxis domain={["auto", "auto"]} width={48} fontSize={11} />
+      <ComposedChart data={rows} syncId={SYNC_ID} margin={{ top: 14, right: 20, bottom: 0, left: 0 }}>
+        <defs>
+          {series.filter((s) => s.area).map((s) => (
+            <linearGradient key={s.key} id={gradId(s.key)} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={s.color} stopOpacity={0.28} />
+              <stop offset="100%" stopColor={s.color} stopOpacity={0} />
+            </linearGradient>
+          ))}
+        </defs>
+        <CartesianGrid vertical={false} stroke="#eef2f7" />
+        <XAxis dataKey="Datetime" tickFormatter={xTick} minTickGap={44} fontSize={11} height={20} tickLine={false} axisLine={false} />
+        <YAxis domain={["auto", "auto"]} width={48} fontSize={11} tickLine={false} axisLine={false} />
         <Tooltip labelFormatter={(v: string) => fmtDateTime(v)} />
         <Legend
           iconSize={10}
@@ -74,19 +92,26 @@ function Panel({ rows, series, height, xTick }: { rows: DataRow[]; series: Serie
         {series.map((s) => {
           const dimmed = active !== null && active !== s.key;
           const highlighted = active === s.key;
-          return (
-            <Line
+          const common = {
+            type: "monotone" as const,
+            dataKey: s.key,
+            name: s.name,
+            stroke: s.color,
+            strokeWidth: highlighted ? 3 : s.width,
+            strokeOpacity: dimmed ? 0.15 : 1,
+            dot: highlighted ? { r: 2, fill: s.color, strokeWidth: 0 } : false,
+            activeDot: { r: 4 },
+            isAnimationActive: false,
+          };
+          return s.area ? (
+            <Area
               key={s.key}
-              type="monotone"
-              dataKey={s.key}
-              name={s.name}
-              stroke={s.color}
-              strokeWidth={highlighted ? 3 : s.width}
-              strokeOpacity={dimmed ? 0.15 : 1}
-              dot={highlighted ? { r: 2, fill: s.color, strokeWidth: 0 } : false}
-              activeDot={{ r: 4 }}
-              isAnimationActive={false}
+              {...common}
+              fill={`url(#${gradId(s.key)})`}
+              fillOpacity={dimmed ? 0.15 : 1}
             />
+          ) : (
+            <Line key={s.key} {...common} />
           );
         })}
         {extreme && activeSeries && (
@@ -107,7 +132,7 @@ function Panel({ rows, series, height, xTick }: { rows: DataRow[]; series: Serie
             }}
           />
         )}
-      </LineChart>
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }
@@ -117,15 +142,18 @@ function ZoomBar({ rows, dataKey, onChange }: { rows: DataRow[]; dataKey: string
   return (
     <div className="zoombar">
       <ResponsiveContainer width="100%" height={46}>
-        <LineChart data={rows} margin={{ top: 2, right: 2, bottom: 0, left: 2 }}>
+        <LineChart data={rows} margin={{ top: 2, right: 8, bottom: 0, left: 8 }}>
           <XAxis dataKey="Datetime" hide />
           <YAxis hide domain={["auto", "auto"]} />
           <Line dataKey={dataKey} stroke="#cbd5e1" dot={false} strokeWidth={1} isAnimationActive={false} />
           <Brush
             dataKey="Datetime"
-            height={26}
-            stroke="#94a3b8"
-            travellerWidth={8}
+            className="wx-brush"
+            height={30}
+            stroke="#cbd5e1"
+            fill="#f1f5f9"
+            travellerWidth={10}
+            gap={1}
             tickFormatter={fmtDate}
             onChange={(e: any) => {
               if (e && typeof e.startIndex === "number") {
@@ -140,10 +168,56 @@ function ZoomBar({ rows, dataKey, onChange }: { rows: DataRow[]; dataKey: string
   );
 }
 
+/** One panel plus its header (title, download PNG/SVG, enlarge). Holds a ref so the
+ *  download menu can grab this panel's live <svg> and export exactly what is on screen. */
+function ChartBlock({
+  label, rows, series, height, xTick, namePrefix, onEnlarge,
+}: {
+  label: string;
+  rows: DataRow[];
+  series: Series[];
+  height: number;
+  xTick: (iso: string) => string;
+  namePrefix: string;
+  onEnlarge: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const fname = `${namePrefix}_${label.replace(/[^a-z0-9]+/gi, "_").toLowerCase()}`;
+  const exportWith = (fn: (svg: SVGSVGElement, name: string) => void) => {
+    const svg = ref.current?.querySelector("svg.recharts-surface") as SVGSVGElement | null;
+    if (svg) fn(svg, fname);
+  };
+  return (
+    <div className="chart-block" ref={ref}>
+      <div className="chart-head">
+        <h4 className="chart-title">{label}</h4>
+        <div className="chart-tools">
+          <DownloadMenu
+            variant="icon"
+            title="Download chart"
+            items={[
+              { label: "PNG", onClick: () => exportWith(downloadChartPNG) },
+              { label: "SVG", onClick: () => exportWith(downloadChartSVG) },
+            ]}
+          />
+          <button type="button" className="expand-btn" title="Enlarge" onClick={onEnlarge}>⤢</button>
+        </div>
+      </div>
+      <Panel rows={rows} series={series} height={height} xTick={xTick} />
+    </div>
+  );
+}
+
 export function ResultsChart({ result }: { result: ApiResponse }) {
   const rows = result.data;
   const [expanded, setExpanded] = useState<string | null>(null);
   const [zoom, setZoom] = useState<{ start: number; end: number } | null>(null);
+  const expandedRef = useRef<HTMLDivElement>(null);
+
+  const exportExpanded = (fn: (svg: SVGSVGElement, name: string) => void) => {
+    const svg = expandedRef.current?.querySelector("svg.recharts-surface") as SVGSVGElement | null;
+    if (svg && expanded) fn(svg, `${baseName(result)}_${expanded.replace(/[^a-z0-9]+/gi, "_").toLowerCase()}`);
+  };
 
   useEffect(() => setZoom(null), [result]);
 
@@ -161,6 +235,9 @@ export function ResultsChart({ result }: { result: ApiResponse }) {
       ? new Date(String(shown[shown.length - 1].Datetime)).getTime() - new Date(String(shown[0].Datetime)).getTime()
       : 0;
   const xTick = spanMs < 2 * 86400000 ? fmtTime : fmtDate;
+  // TODO (DESIGN §7.7): if a range ever spans the CET<->CEST change (late Mar / late Oct),
+  // draw a subtle ReferenceLine at the transition. Skipped for now: the seasonal
+  // (Dec-Feb) data never crosses it, so it would add code for no practical benefit.
   const overviewKey = aggregated ? `${present[0]} mean` : present[0];
 
   return (
@@ -170,22 +247,35 @@ export function ResultsChart({ result }: { result: ApiResponse }) {
 
       <div className="panels">
         {present.map((label) => (
-          <div className="chart-block" key={label}>
-            <div className="chart-head">
-              <h4 className="chart-title">{label}</h4>
-              <button type="button" className="expand-btn" title="Enlarge" onClick={() => setExpanded(label)}>⤢</button>
-            </div>
-            <Panel rows={shown} series={seriesFor(label, aggregated, first)} height={160} xTick={xTick} />
-          </div>
+          <ChartBlock
+            key={label}
+            label={label}
+            rows={shown}
+            series={seriesFor(label, aggregated, first)}
+            height={160}
+            xTick={xTick}
+            namePrefix={baseName(result)}
+            onEnlarge={() => setExpanded(label)}
+          />
         ))}
       </div>
 
       {expanded && (
         <div className="lightbox-backdrop" onClick={() => setExpanded(null)}>
-          <div className="lightbox-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="lightbox-panel" ref={expandedRef} onClick={(e) => e.stopPropagation()}>
             <div className="lightbox-head">
               <span className="lightbox-title">{expanded}</span>
-              <button type="button" className="lightbox-close" onClick={() => setExpanded(null)}>×</button>
+              <div className="chart-tools">
+                <DownloadMenu
+                  variant="icon"
+                  title="Download chart"
+                  items={[
+                    { label: "PNG", onClick: () => exportExpanded(downloadChartPNG) },
+                    { label: "SVG", onClick: () => exportExpanded(downloadChartSVG) },
+                  ]}
+                />
+                <button type="button" className="lightbox-close" onClick={() => setExpanded(null)}>×</button>
+              </div>
             </div>
             <Panel rows={shown} series={seriesFor(expanded, aggregated, first)} height={460} xTick={xTick} />
           </div>

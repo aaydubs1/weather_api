@@ -86,6 +86,54 @@ const DATA_INFO =
   "campaigns (Dec–Feb), when the bases are active. Very recent dates may not be published " +
   "yet. Use a Summer preset for guaranteed data.";
 
+/** Custom dropdown replacing the native <select>: the OS-rendered option list cannot be
+ *  themed with CSS, so we render our own popover to match the app's menu styling. */
+function Dropdown({
+  value, options, onChange, label,
+}: {
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (v: string) => void;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.value === value)?.label ?? value;
+  return (
+    <div className="tb-select">
+      <button
+        type="button"
+        className="tb-value tb-select-btn"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={label}
+      >
+        <span className="tb-select-value">{current}</span>
+        <span className="tb-caret" aria-hidden>▾</span>
+      </button>
+      {open && (
+        <>
+          <div className="backdrop" onClick={() => setOpen(false)} />
+          <div className="tb-menu" role="listbox">
+            {options.map((o) => (
+              <button
+                type="button"
+                key={o.value}
+                role="option"
+                aria-selected={o.value === value}
+                className={o.value === value ? "on" : ""}
+                onClick={() => { onChange(o.value); setOpen(false); }}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function QueryForm({ stations, loading, onSubmit }: Props) {
   const [station, setStation] = useState("");
   const [range, setRange] = useState<DateRange | undefined>({ from: SUMMERS[0].from, to: SUMMERS[0].to });
@@ -127,11 +175,12 @@ export function QueryForm({ stations, loading, onSubmit }: Props) {
     <form className="toolbar" onSubmit={handleSubmit}>
       <div className="tb-field">
         <span className="tb-label">Station</span>
-        <select value={station} onChange={(e) => setStation(e.target.value)}>
-          {stations.map((s) => (
-            <option key={s.key} value={s.key}>{s.name}</option>
-          ))}
-        </select>
+        <Dropdown
+          label="Station"
+          value={station}
+          onChange={setStation}
+          options={stations.map((s) => ({ value: s.key, label: s.name }))}
+        />
       </div>
 
       <div className="tb-divider" />
@@ -173,11 +222,12 @@ export function QueryForm({ stations, loading, onSubmit }: Props) {
 
       <div className="tb-field">
         <span className="tb-label">Aggregation</span>
-        <select value={aggregation} onChange={(e) => setAggregation(e.target.value as Aggregation)}>
-          {AGGREGATIONS.map((a) => (
-            <option key={a} value={a}>{a}</option>
-          ))}
-        </select>
+        <Dropdown
+          label="Aggregation"
+          value={aggregation}
+          onChange={(v) => setAggregation(v as Aggregation)}
+          options={AGGREGATIONS.map((a) => ({ value: a, label: a }))}
+        />
       </div>
 
       <div className="tb-divider" />
@@ -204,7 +254,7 @@ export function QueryForm({ stations, loading, onSubmit }: Props) {
       </div>
 
       <button className="tb-submit" type="submit" disabled={loading || !station}>
-        {loading ? "…" : "Query"}
+        {loading ? "…" : "Search"}
       </button>
     </form>
   );

@@ -35,13 +35,29 @@ def test_endpoint_returns_processed_data(monkeypatch):
     assert counter["calls"] == 1
 
 
-def test_cache_avoids_a_second_source_call(monkeypatch):
+def test_cache_miss_fetches_from_source_once(monkeypatch):
+    """First query for an uncached range is a cache MISS: the source is hit exactly
+    once and the data is returned. (Its pair, the cache HIT, is the next test.)"""
     counter = {"calls": 0}
     monkeypatch.setattr(cache_module, "fetch_timeseries", _fake_source(counter))
 
     with TestClient(app) as client:
-        client.get(URL)
-        client.get(URL)  # identical range -> served from cache
+        response = client.get(URL)  # empty cache -> must go to the source
+
+    assert response.status_code == 200
+    assert response.json()["count"] == 1
+    assert counter["calls"] == 1
+
+
+def test_cache_avoids_a_second_source_call(monkeypatch):
+    """Cache HIT: a second identical query is served from SQLite, so the source is
+    not called again (calls stay at 1 across both requests)."""
+    counter = {"calls": 0}
+    monkeypatch.setattr(cache_module, "fetch_timeseries", _fake_source(counter))
+
+    with TestClient(app) as client:
+        client.get(URL)  # miss -> 1 source call
+        client.get(URL)  # identical range -> served from cache, no new call
 
     assert counter["calls"] == 1
 

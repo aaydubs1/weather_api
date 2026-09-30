@@ -102,15 +102,110 @@ built on a **consistent local day**, and that the assumption is explicit. (See T
 
 ## 7. UX approach (Part 3)
 
-The reviewer stressed usability. Principles for the frontend:
-- **One clear form**, top to bottom, in the order you think about the query: station →
-  date range → aggregation → which measurements.
-- **Sensible defaults** so a first-time user gets a result with one click.
-- **Two views of the same data**: a **chart** (to see the pattern/extremes at a glance)
-  and a **table** (for exact values), toggled or shown together.
-- **Honest states**: loading, empty ("no data for this range"), and error messages that
-  say what to do, not stack traces.
-- Units shown in the headers (°C, hPa, m/s) and the time zone made explicit.
+The reviewer stressed that the interface must be understandable at a glance. The frontend
+is not a thin wrapper over the API; each UX decision below was made to remove a specific
+source of confusion. The guiding principle: **the interface should teach the user about
+the data, not just display it.**
+
+### 7.1 Search as a familiar, scannable header
+
+The query controls (station → date range → aggregation → measurements) are laid out as a
+horizontal **toolbar at the top**, in the mental order of the question, mirroring the
+booking-search pattern (Skyscanner/Google Flights) people already know. Measurements are
+**add/remove pills** rather than a checkbox list: they read as "what's included right now"
+and keep the toolbar compact. Sensible defaults (a summer range, Daily aggregation) mean a
+first-time user gets a meaningful result with **one click**, before understanding any option.
+
+### 7.2 Designing around the data's seasonality (the biggest UX trap)
+
+The Antarctic bases report almost only during the **austral summer (Dec–Feb)**. A naive
+date picker lets the user land on an empty range and conclude "this is broken". Two
+deliberate countermeasures:
+
+- **Austral-summer presets** ("Summer 24/25", "Summer 25/26", …) generated dynamically, so
+  the easy path is a range that *has* data.
+- An **info "i" affordance** next to the dates that, on hover, explains when data exists.
+- Future dates are **disabled** in the calendar, and an empty result renders an explanatory
+  message pointing back to the Summer presets — never a blank screen.
+
+This is data literacy built into the UI, which matters more here than any visual polish.
+
+### 7.3 Reading three quantities honestly: linked panels, not one busy chart
+
+Temperature (°C), pressure (hPa) and wind speed (m/s) share no scale. Forcing them onto a
+single chart with multiple hidden Y-axes makes lines *look* correlated purely because of
+axis scaling — a subtly dishonest visualization. Instead the default view is **three
+stacked panels, one per measurement**, sharing a synchronized cursor (`syncId`): hovering
+any panel shows the value at the **same instant on all three**, so you compare without the
+axis-scaling lie. A single **range slider at the top** zooms every panel at once (one
+control, one consistent window). Each panel can be **enlarged in a lightbox** for detail.
+
+### 7.4 Correlation as a deliberate, secondary task
+
+Overlaying the measurements *is* useful for spotting relationships (e.g. pressure drop vs
+wind rise), but it is a secondary, intentional question — not the default. So correlation
+lives behind a **"Correlate" action** that opens the combined multi-axis chart in a
+lightbox. If the current query has a single measurement, the button becomes **"Correlate
+with…"** and fetches the other series **on demand**, so the user never has to re-run the
+whole query. Keeping this out of the default view avoids clutter while leaving it one click
+away.
+
+### 7.5 Showing mean / min / max without a rainbow
+
+Because aggregation returns mean + min + max (§1), each panel draws three series. The
+encoding is **monochromatic and separated by lightness**, not by unrelated hues: the
+**mean** is the emphasized line with a soft gradient area beneath it, and **min/max** are
+lighter companion lines. This reads as one measurement with a band, not three unrelated
+things, and avoids warm colours that would falsely imply "hot/cold" semantics.
+
+### 7.6 Vertical space, honest states, correctness in the UI
+
+- After a query, the filter toolbar **collapses** (with a small "Edit search" affordance) so
+  all three panels are visible at once — the whole point of the stacked layout.
+- **Honest states**: explicit loading, empty and error messages that say what to do, never a
+  stack trace.
+- **Correctness surfaced, not hidden**: units live in the headers (°C, hPa, m/s), the output
+  time zone is shown, and timestamps are formatted **from the ISO string without
+  re-converting to the browser's zone**, so the CET/CEST offset the backend computed is what
+  the user sees regardless of where they are.
+
+### 7.7 The table: sortable and virtualized for scale
+
+The table is the "exact values" view, and a `None` query over a summer season is 10-minute
+data — tens of thousands of rows. Two decisions keep it usable:
+
+- **Sortable columns.** Clicking any header sorts by that field; clicking again flips the
+  direction (e.g. *Temperature min* → highest first, then lowest). Numeric columns default
+  to highest-first, text columns to A→Z, and nulls always sort last. This lets a user find
+  extremes directly in the data, complementing the chart.
+- **Virtual scrolling.** Only the rows inside the viewport (plus a small overscan) are
+  rendered; two spacer rows preserve the real scroll height. Rendering tens of thousands of
+  `<tr>` would freeze the browser, so this is a real scalability decision, not polish.
+
+It is implemented **without a table library** (no TanStack/react-virtual dependency): a
+fixed row height makes the index math a few lines, which keeps the bundle small and the
+code self-contained. If requirements grew (resizable columns, grouping, column virtualization
+for very wide tables), swapping in TanStack Table would be the next step — noted as a TODO.
+
+### 7.8 Exports
+
+Both views are exportable so the data leaves the app in whatever shape the next tool needs:
+
+- **Table → CSV, JSON, Excel (.xlsx).** CSV and JSON are built in the browser with no
+  dependency (CSV carries a UTF-8 BOM so Excel renders `ºC` correctly). Excel uses **SheetJS
+  loaded from a CDN on demand** — the library is fetched only if the user actually clicks
+  Excel, so it adds nothing to the bundle and needs no install step.
+- **Charts → PNG, SVG.** Each panel (and the enlarged / correlation views) exports its live
+  `<svg>`: SVG is serialized directly; PNG is rasterized via a canvas at 2× with a white
+  background (the on-screen charts are transparent). No image library is pulled in.
+
+### 7.9 DST visualization — a deliberate non-decision
+
+Highlighting the CET↔CEST transition on the X axis was considered and **rejected on
+purpose**: the DST change happens in late March / late October, while the data windows are
+Dec–Feb, so a marker would essentially never fire. The DST *correctness* is guaranteed in
+the backend and verified by tests; a decorative marker would add code and surface for zero
+practical benefit. Left as a TODO in case a range ever crosses the boundary.
 
 ## 8. Scalability & future work (TODO)
 
@@ -120,3 +215,5 @@ The reviewer stressed usability. Principles for the frontend:
 - Move from SQLite to PostgreSQL for concurrent high load (data layer already abstracted).
 - Confirm the exact station civil time zone with the AEMET metadata.
 - Rate-limit / queue outbound calls to AEMET as an extra safeguard.
+- Mark the DST transition on the chart X axis **if** a queried range ever crosses it
+  (see §7.7 — currently skipped because the seasonal data never does).

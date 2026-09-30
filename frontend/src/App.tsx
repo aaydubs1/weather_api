@@ -4,9 +4,21 @@ import { QueryForm } from "./components/QueryForm";
 import { ResultsChart } from "./components/ResultsChart";
 import { ResultsTable } from "./components/ResultsTable";
 import { CorrelateButton } from "./components/CorrelateButton";
+import { DownloadMenu } from "./components/DownloadMenu";
+import { downloadCSV, downloadJSON, downloadXLSX } from "./download";
 import type { ApiResponse, MeasurementKey, QueryParams, Station } from "./types";
 
 const ALL_MEASUREMENTS: MeasurementKey[] = ["temperature", "pressure", "speed"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "2025-12-01T00:00:00" -> "1 Dec 2025" */
+function fmtDay(iso: string): string {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return `${d} ${MONTHS[m - 1]} ${y}`;
+}
+function fmtRange(start: string, end: string): string {
+  return `${fmtDay(start)} – ${fmtDay(end)}`;
+}
 
 export function App() {
   const [stations, setStations] = useState<Station[]>([]);
@@ -59,12 +71,6 @@ export function App() {
         <div className={filtersOpen ? "toolbar-wrap" : "toolbar-wrap hidden"}>
           <QueryForm stations={stations} loading={loading} onSubmit={runQuery} />
         </div>
-        {!filtersOpen && (
-          <button className="reopen-btn" type="button" onClick={() => setFiltersOpen(true)}>
-            ⚙ Edit search
-          </button>
-        )}
-
         <section className="card results">
           {loading && <p className="hint">Loading data…</p>}
           {error && <p className="error">⚠ {error}</p>}
@@ -82,14 +88,29 @@ export function App() {
                 <div className="meta">
                   <strong>{result!.station}</strong>
                   <span className="badge">{result!.aggregation}</span>
-                  <span className="muted">· {result!.count} rows · times in {result!.timezone}</span>
+                  {lastParams && <span className="date-range">{fmtRange(lastParams.start, lastParams.end)}</span>}
+                  <span className="muted">· times in {result!.timezone}</span>
                 </div>
                 <div className="head-actions">
+                  {!filtersOpen && (
+                    <button className="reopen-btn" type="button" onClick={() => setFiltersOpen(true)}>
+                      ⚙ Edit search
+                    </button>
+                  )}
                   {view === "chart" && (
                     <CorrelateButton
                       current={result!}
                       currentMeasurements={currentMeasurements}
                       fetchFor={fetchFor}
+                    />
+                  )}
+                  {view === "table" && (
+                    <DownloadMenu
+                      items={[
+                        { label: "CSV", onClick: () => downloadCSV(result!) },
+                        { label: "JSON", onClick: () => downloadJSON(result!) },
+                        { label: "Excel (.xlsx)", onClick: () => downloadXLSX(result!) },
+                      ]}
                     />
                   )}
                   <div className="toggle">

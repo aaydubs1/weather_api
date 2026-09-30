@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ApiResponse, MeasurementKey } from "../types";
 import { CombinedChart } from "./CombinedChart";
+import { DownloadMenu } from "./DownloadMenu";
+import { baseName, downloadChartPNG, downloadChartSVG } from "../download";
 
 const ALL: MeasurementKey[] = ["temperature", "pressure", "speed"];
 const ALL_LABELS = ["Temperature (ºC)", "Pressure (hpa)", "Speed (m/s)"];
@@ -25,6 +27,12 @@ export function CorrelateButton({ current, currentMeasurements, fetchFor }: Prop
   const [modalData, setModalData] = useState<ApiResponse | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const exportModal = (fn: (svg: SVGSVGElement, name: string) => void) => {
+    const svg = modalRef.current?.querySelector("svg.recharts-surface") as SVGSVGElement | null;
+    if (svg && modalData) fn(svg, `${baseName(modalData)}_correlation`);
+  };
 
   const single = currentMeasurements.length === 1;
   const others = ALL.filter((m) => !currentMeasurements.includes(m));
@@ -64,10 +72,20 @@ export function CorrelateButton({ current, currentMeasurements, fetchFor }: Prop
 
       {modalData && (
         <div className="lightbox-backdrop" onClick={() => setModalData(null)}>
-          <div className="lightbox-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="lightbox-panel" ref={modalRef} onClick={(e) => e.stopPropagation()}>
             <div className="lightbox-head">
               <span className="lightbox-title">Correlation · {modalData.station}</span>
-              <button type="button" className="lightbox-close" onClick={() => setModalData(null)}>×</button>
+              <div className="chart-tools">
+                <DownloadMenu
+                  variant="icon"
+                  title="Download chart"
+                  items={[
+                    { label: "PNG", onClick: () => exportModal(downloadChartPNG) },
+                    { label: "SVG", onClick: () => exportModal(downloadChartSVG) },
+                  ]}
+                />
+                <button type="button" className="lightbox-close" onClick={() => setModalData(null)}>×</button>
+              </div>
             </div>
             <CombinedChart rows={modalData.data} labels={ALL_LABELS} aggregated={modalData.aggregation !== "None"} height={460} />
           </div>

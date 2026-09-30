@@ -50,16 +50,38 @@ body {
   font-size: 10px; font-weight: 700; letter-spacing: 0.4px;
   text-transform: uppercase; color: var(--muted);
 }
-.tb-field select,
+/* Station / Aggregation / Date range all share the same bordered "pill" control,
+   consistent with the Edit search button. */
 .tb-value {
-  border: none; background: transparent; padding: 0;
-  font-size: 14px; color: var(--ink); font-weight: 500;
+  border: 1px solid var(--line); background: #fff; border-radius: 9px;
+  padding: 8px 12px; font-size: 14px; color: var(--ink); font-weight: 600;
   cursor: pointer; outline: none; max-width: 100%;
+  transition: border-color 0.12s ease, background 0.12s ease;
+  text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.tb-value { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tb-divider { width: 1px; background: var(--line); margin: 8px 0; }
+.tb-value:hover { border-color: var(--accent); background: #f0fbff; }
+/* Bordered controls make the vertical dividers redundant. */
+.tb-divider { display: none; }
+
+/* Custom dropdown (Station / Aggregation): themed open list matching the Correlate menu,
+   because a native <select> popup cannot be styled with CSS. */
+.tb-select { position: relative; display: inline-flex; }
+.tb-select-btn { display: inline-flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; }
+.tb-select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-caret { color: var(--muted); font-size: 11px; flex: none; }
+.tb-menu {
+  position: absolute; top: 100%; left: 0; margin-top: 6px; z-index: 60;
+  min-width: 100%; background: #fff; border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: var(--shadow); padding: 5px; display: flex; flex-direction: column;
+}
+.tb-menu button {
+  text-align: left; border: none; background: transparent; cursor: pointer;
+  padding: 8px 12px; border-radius: 7px; font-size: 14px; color: var(--ink); white-space: nowrap;
+}
+.tb-menu button:hover { background: #ecfeff; color: var(--accent); }
+.tb-menu button.on { background: #ecfeff; color: var(--accent); font-weight: 700; }
 .tb-submit {
-  margin-left: auto; align-self: center;
+  margin-left: auto; margin-right: 6px; align-self: center;
   padding: 13px 28px; border: none; border-radius: 10px;
   background: var(--accent); color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;
 }
@@ -113,6 +135,7 @@ body {
 }
 .meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .badge { background: #ecfeff; color: var(--accent); border: 1px solid #cffafe; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.date-range { color: var(--ink); font-size: 13px; font-weight: 600; }
 .muted { color: var(--muted); font-size: 13px; }
 .toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
 .toggle button { border: none; background: #fff; padding: 7px 14px; font-size: 13px; cursor: pointer; color: var(--muted); }
@@ -137,14 +160,19 @@ body {
 .panels { display: flex; flex-direction: column; gap: 12px; }
 .charts-hint { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
 .chart-block {
-  border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px 6px; background: #fff;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  border: 1px solid transparent; border-radius: 12px; padding: 10px 14px 6px; background: transparent;
+  transition: border-color 0.12s ease, background 0.12s ease;
 }
-.chart-block:hover { border-color: var(--accent); box-shadow: 0 6px 18px rgba(14, 116, 144, 0.12); }
+.chart-block:hover { border-color: var(--line); background: rgba(255, 255, 255, 0.35); }
 .chart-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 .chart-title { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); }
+.chart-tools { display: inline-flex; align-items: center; gap: 2px; }
 .expand-btn { border: none; background: transparent; cursor: pointer; color: var(--muted); font-size: 16px; line-height: 1; padding: 3px 7px; border-radius: 7px; }
 .expand-btn:hover { background: #f1f5f9; color: var(--accent); }
+
+/* Download dropdown wrapper (reuses .corr-menu / .corr-backdrop for the list). */
+.dl { position: relative; display: inline-flex; }
+.dl .corr-menu { min-width: 132px; }
 
 /* ---- Lightbox (enlarged chart) ---- */
 .lightbox-backdrop {
@@ -175,8 +203,23 @@ body {
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th, td { padding: 8px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
 th:first-child, td:first-child { text-align: left; }
-thead th { background: #f8fafc; color: var(--muted); font-weight: 600; position: sticky; top: 0; }
+thead th { background: #f8fafc; color: var(--muted); font-weight: 600; position: sticky; top: 0; z-index: 1; }
 tbody tr:hover { background: #f9fbfd; }
+
+/* Sortable headers */
+th.sortable { cursor: pointer; user-select: none; transition: background 0.12s ease, color 0.12s ease; }
+th.sortable:hover { background: #eef4f8; color: var(--ink); }
+th.sortable.active { color: var(--accent); }
+.th-arrow { margin-left: 6px; font-size: 10px; color: #cbd5e1; }
+th.sortable:hover .th-arrow { color: var(--muted); }
+th.sortable.active .th-arrow { color: var(--accent); }
+
+/* Virtual scroll: fixed viewport + fixed row height (see ResultsTable ROW_H / VIEW_H) */
+.vtable { max-height: 440px; overflow-y: auto; }
+.vtable tbody tr { height: 33px; }
+.vtable td.vspace { padding: 0; border: none; } /* spacer rows keep total scroll height */
+
+.table-count { font-size: 12px; color: var(--muted); margin-top: 8px; text-align: right; }
 
 /* ---- Responsive ---- */
 @media (max-width: 900px) {
@@ -213,23 +256,41 @@ tbody tr:hover { background: #f9fbfd; }
 /* Collapsible filters + top zoom slider */
 .toolbar-wrap.hidden { display: none; }
 .reopen-btn {
-  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
-  padding: 8px 14px; border: 1px solid var(--line); background: #fff; border-radius: 10px;
-  font-weight: 600; font-size: 13px; color: var(--accent); cursor: pointer; box-shadow: var(--shadow);
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border: 1px solid var(--line); background: #fff; border-radius: 9px;
+  font-weight: 600; font-size: 13px; color: var(--muted); cursor: pointer;
 }
-.reopen-btn:hover { background: #f0fbff; border-color: var(--accent); }
+.reopen-btn:hover { background: #f0fbff; border-color: var(--accent); color: var(--accent); }
 .zoombar { width: 100%; margin-bottom: 8px; }
+.zoombar svg { overflow: visible; }
+
+/* Custom-styled range slider (Recharts Brush). CSS overrides the SVG presentation
+   attributes, so the default grey look is replaced with the app's accent scheme. */
+.wx-brush .recharts-brush-background,
+.wx-brush > rect:first-of-type { fill: #f1f5f9; stroke: none; rx: 7; ry: 7; }
+/* Selected window */
+.wx-brush .recharts-brush-slide {
+  fill: var(--accent); fill-opacity: 0.10; stroke: none;
+}
+/* Drag handles */
+.wx-brush .recharts-brush-traveller > rect {
+  fill: #fff; stroke: var(--accent); stroke-width: 1.5;
+  rx: 5; ry: 5; cursor: ew-resize;
+  filter: drop-shadow(0 1px 2px rgba(15, 34, 51, 0.18));
+}
+.wx-brush .recharts-brush-traveller > line { stroke: var(--accent); stroke-width: 1.25; }
+.wx-brush .recharts-brush-texts text { fill: var(--muted); font-size: 10px; font-weight: 600; }
 
 /* ---- Correlate action (results head) ---- */
 .head-actions { display: inline-flex; align-items: center; gap: 10px; }
 .correlate { position: relative; display: inline-flex; }
 .corr-btn {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px; border: 1px solid var(--accent); border-radius: 9px;
-  background: #ecfeff; color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer;
-  transition: background 0.12s ease;
+  padding: 7px 14px; border: 1px solid var(--line); border-radius: 9px;
+  background: #fff; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
 }
-.corr-btn:hover { background: #d7f6fb; }
+.corr-btn:hover { background: #f0fbff; border-color: var(--accent); color: var(--accent); }
 .corr-btn:disabled { opacity: 0.55; cursor: default; }
 .corr-backdrop { position: fixed; inset: 0; z-index: 80; }
 .corr-menu {
