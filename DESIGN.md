@@ -152,11 +152,15 @@ away.
 
 ### 7.5 Showing mean / min / max without a rainbow
 
-Because aggregation returns mean + min + max (§1), each panel draws three series. The
-encoding is **monochromatic and separated by lightness**, not by unrelated hues: the
-**mean** is the emphasized line with a soft gradient area beneath it, and **min/max** are
-lighter companion lines. This reads as one measurement with a band, not three unrelated
-things, and avoids warm colours that would falsely imply "hot/cold" semantics.
+Because aggregation returns mean + min + max (§1), the natural instinct is to draw three
+lines — but three jagged lines over a season smear into an unreadable blur, and they still
+look busy even for a single day. So the spread is drawn the standard way: the **min–max
+range is a single translucent band** and the **mean is one crisp line** on top. This reads
+as one measurement with a spread, stays clean at any density (one day or three months), and
+needs no gradient fill or per-series toggling. The band is a soft sky blue and the mean line
+the teal accent — a cohesive cool pairing, with no warm colours that would falsely imply
+"hot/cold" semantics. The tooltip still reports Max, Mean and Min for the hovered instant. A
+`None` (raw) query has no min/max, so it is simply a single line.
 
 ### 7.6 Vertical space, honest states, correctness in the UI
 

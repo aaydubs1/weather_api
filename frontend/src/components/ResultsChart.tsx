@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Area, Brush, CartesianGrid, ComposedChart, Legend, Line, LineChart, ReferenceDot,
+  Area, Brush, CartesianGrid, ComposedChart, Legend, Line, LineChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import type { ApiResponse, DataRow } from "../types";
@@ -13,26 +13,22 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 interface Series {
   key: string;
-  name: string;
   color: string;
-  width: number;
-  area: boolean; // draw a soft gradient fill under the line
+  area: boolean; // marks the primary series (mean / value line)
 }
 
-// Cohesive cool range. Mean (accent teal) is the darkest/primary; Max and Min are both
-// lighter but distinct by hue: Max = soft sky blue, Min = light cool grey.
-const PALETTE = { mean: "#0e7490", max: "#60c5f1", min: "#94a3b8" };
+// Only two colours exist on the chart: the mean line (accent teal) and the min–max band
+// (soft sky blue). Max and Min are the two edges of that same band, so they share its colour.
+const PALETTE = { mean: "#0e7490", band: "#60c5f1" };
 
 function seriesFor(label: string, aggregated: boolean, first: DataRow): Series[] {
-  if (!aggregated) return [{ key: label, name: "Value", color: PALETTE.mean, width: 2, area: true }];
+  if (!aggregated) return [{ key: label, color: PALETTE.mean, area: true }];
   return [
-    { key: `${label} mean`, name: "Mean", color: PALETTE.mean, width: 2, area: true },
-    { key: `${label} max`, name: "Max", color: PALETTE.max, width: 1.75, area: false },
-    { key: `${label} min`, name: "Min", color: PALETTE.min, width: 1.75, area: false },
+    { key: `${label} mean`, color: PALETTE.mean, area: true },
+    { key: `${label} max`, color: PALETTE.band, area: false },
+    { key: `${label} min`, color: PALETTE.band, area: false },
   ].filter((s) => s.key in first);
 }
-
-const gradId = (key: string) => `wxg-${key.replace(/[^a-z0-9]/gi, "-")}`;
 
 function unitOf(key: string): string {
   const m = key.match(/\(([^)]+)\)/);
@@ -50,88 +46,79 @@ const fmtDate = (iso: string) => { const p = isoParts(iso); return `${p.d} ${MON
 const fmtTime = (iso: string) => isoParts(iso).time;
 const fmtDateTime = (iso: string) => { const p = isoParts(iso); return `${p.d} ${MONTHS[p.m - 1]}, ${p.time}`; };
 
-function extremeOf(rows: DataRow[], key: string, kind: "max" | "min"): { x: string; y: number } | null {
-  let best: { x: string; y: number } | null = null;
-  for (const row of rows) {
+/** Tooltip for the dense band view: reads the hovered row and lists Max / Mean / Min. */
+function BandTooltip({ active, payload, label, meanKey, minKey, maxKey, unit }: any) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload ?? {};
+  const line = (name: string, key: string, color: string) => {
     const v = row[key];
-    if (typeof v !== "number") continue;
-    if (best === null || (kind === "max" ? v > best.y : v < best.y)) best = { x: String(row["Datetime"]), y: v };
-  }
-  return best;
+    if (v === null || v === undefined) return null;
+    return (
+      <div className="ctip-row" key={name}>
+        <span className="ctip-dot" style={{ background: color }} />
+        <span className="ctip-name">{name}</span>
+        <span className="ctip-val">{v}{unit}</span>
+      </div>
+    );
+  };
+  return (
+    <div className="ctip">
+      <div className="ctip-time">{fmtDateTime(String(label))}</div>
+      {line("Max", maxKey, PALETTE.band)}
+      {line("Mean", meanKey, PALETTE.mean)}
+      {line("Min", minKey, PALETTE.band)}
+    </div>
+  );
 }
 
-/** A linked panel. All panels share `syncId`, so hovering one shows the cursor at the
- *  same instant on every panel. */
+/** A linked panel. All panels share `syncId`, so hovering one shows the cursor at the same
+ *  instant on every panel. Aggregated data is always drawn as a translucent min–max BAND
+ *  with the mean as one crisp line on top (clean at any density, one day or a whole season);
+ *  a "None" query has no min/max, so it is a single line. No gradient fill. */
 function Panel({ rows, series, height, xTick }: { rows: DataRow[]; series: Series[]; height: number; xTick: (iso: string) => string }) {
-  const [active, setActive] = useState<string | null>(null);
-  const activeSeries = series.find((s) => s.key === active) ?? null;
-  const kind: "max" | "min" = active && active.endsWith("min") ? "min" : "max";
-  const extreme = active ? extremeOf(rows, active, kind) : null;
+  const meanS = series.find((s) => s.area) ?? series[0];
+  const minS = series.find((s) => s.key.endsWith(" min"));
+  const maxS = series.find((s) => s.key.endsWith(" max"));
+  const banded = !!(minS && maxS);
+  const unit = unitOf(meanS.key);
 
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ComposedChart data={rows} syncId={SYNC_ID} margin={{ top: 14, right: 20, bottom: 0, left: 0 }}>
-        <defs>
-          {series.filter((s) => s.area).map((s) => (
-            <linearGradient key={s.key} id={gradId(s.key)} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={s.color} stopOpacity={0.28} />
-              <stop offset="100%" stopColor={s.color} stopOpacity={0} />
-            </linearGradient>
-          ))}
-        </defs>
         <CartesianGrid vertical={false} stroke="#eef2f7" />
         <XAxis dataKey="Datetime" tickFormatter={xTick} minTickGap={44} fontSize={11} height={20} tickLine={false} axisLine={false} />
         <YAxis domain={["auto", "auto"]} width={48} fontSize={11} tickLine={false} axisLine={false} />
-        <Tooltip labelFormatter={(v: string) => fmtDateTime(v)} />
-        <Legend
-          iconSize={10}
-          wrapperStyle={{ fontSize: 12 }}
-          onMouseEnter={(o: any) => setActive(o?.dataKey != null ? String(o.dataKey) : null)}
-          onMouseLeave={() => setActive(null)}
-        />
-        {series.map((s) => {
-          const dimmed = active !== null && active !== s.key;
-          const highlighted = active === s.key;
-          const common = {
-            type: "monotone" as const,
-            dataKey: s.key,
-            name: s.name,
-            stroke: s.color,
-            strokeWidth: highlighted ? 3 : s.width,
-            strokeOpacity: dimmed ? 0.15 : 1,
-            dot: highlighted ? { r: 2, fill: s.color, strokeWidth: 0 } : false,
-            activeDot: { r: 4 },
-            isAnimationActive: false,
-          };
-          return s.area ? (
-            <Area
-              key={s.key}
-              {...common}
-              fill={`url(#${gradId(s.key)})`}
-              fillOpacity={dimmed ? 0.15 : 1}
-            />
-          ) : (
-            <Line key={s.key} {...common} />
-          );
-        })}
-        {extreme && activeSeries && (
-          <ReferenceDot
-            x={extreme.x}
-            y={extreme.y}
-            r={5}
-            fill={activeSeries.color}
-            stroke="#fff"
-            strokeWidth={2}
-            isFront
-            label={{
-              value: `${kind === "min" ? "Min" : "Max"} ${extreme.y}${unitOf(active!)}`,
-              position: "top",
-              fill: activeSeries.color,
-              fontSize: 12,
-              fontWeight: 700,
+        {banded ? (
+          <Tooltip content={<BandTooltip meanKey={meanS.key} minKey={minS!.key} maxKey={maxS!.key} unit={unit} />} />
+        ) : (
+          <Tooltip labelFormatter={(v: string) => fmtDateTime(v)} />
+        )}
+        <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
+        {banded && (
+          <Area
+            type="monotone"
+            dataKey={(d: DataRow) => {
+              const lo = d[minS!.key]; const hi = d[maxS!.key];
+              return lo == null || hi == null ? null : [lo as number, hi as number];
             }}
+            name="Min–Max"
+            stroke="none"
+            fill={PALETTE.band}
+            fillOpacity={0.22}
+            isAnimationActive={false}
+            activeDot={false}
           />
         )}
+        <Line
+          type="monotone"
+          dataKey={meanS.key}
+          name={banded ? "Mean" : "Value"}
+          stroke={meanS.color}
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 4 }}
+          isAnimationActive={false}
+        />
       </ComposedChart>
     </ResponsiveContainer>
   );

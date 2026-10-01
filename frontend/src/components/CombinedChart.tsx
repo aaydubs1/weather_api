@@ -1,9 +1,7 @@
 import {
-  Area, Brush, CartesianGrid, ComposedChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Brush, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import type { DataRow } from "../types";
-
-const gradId = (key: string) => `cg-${key.replace(/[^a-z0-9]/gi, "-")}`;
 
 interface AxisConfig {
   axis: string;
@@ -67,14 +65,6 @@ export function CombinedChart({ rows, labels, aggregated, height = 280 }: { rows
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ComposedChart data={rows} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-        <defs>
-          {items.map((it) => (
-            <linearGradient key={it.key} id={gradId(it.key)} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={it.color} stopOpacity={0.18} />
-              <stop offset="100%" stopColor={it.color} stopOpacity={0} />
-            </linearGradient>
-          ))}
-        </defs>
         <CartesianGrid vertical={false} stroke="#eef2f7" />
         <XAxis dataKey="Datetime" tickFormatter={fmtDate} minTickGap={48} fontSize={11} tickLine={false} axisLine={false} />
         {items.map((it) => (
@@ -83,7 +73,7 @@ export function CombinedChart({ rows, labels, aggregated, height = 280 }: { rows
         <Tooltip content={<CombinedTooltip />} />
         <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
         {items.map((it) => (
-          <Area
+          <Line
             key={it.key}
             yAxisId={it.axis}
             type="monotone"
@@ -91,8 +81,6 @@ export function CombinedChart({ rows, labels, aggregated, height = 280 }: { rows
             name={nameOf(it.key)}
             stroke={it.color}
             strokeWidth={2}
-            fill={`url(#${gradId(it.key)})`}
-            fillOpacity={1}
             dot={false}
             activeDot={{ r: 4 }}
             isAnimationActive={false}
