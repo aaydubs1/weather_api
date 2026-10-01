@@ -211,6 +211,24 @@ Dec–Feb, so a marker would essentially never fire. The DST *correctness* is gu
 the backend and verified by tests; a decorative marker would add code and surface for zero
 practical benefit. Left as a TODO in case a range ever crosses the boundary.
 
+### 7.10 Point inspector — findings, framed honestly
+
+Clicking any point opens an inspector that compares that instant to the whole queried
+period. Because the panels are time-synced, one click selects the **instant** and the panel
+shows all three measurements at once. Each is drawn on a **horizontal scale from the
+period's min to its max**, with a marker for the clicked value and a tick for the period
+average, a percentile chip ("windier than 78%"), and a one-line finding.
+
+The important decision here is **framing, not code**. With three variables at one timestamp
+you cannot legitimately conclude "this site is suitable to build X" — that is an engineering
+claim the data can't support. So the inspector is deliberately **descriptive, not
+prescriptive**: it reports where the point sits in the user's own data (percentile, extremes,
+distance from the mean) and labels it with **standard, citable references only** — the
+Beaufort scale for wind, the 0 °C freezing threshold, the 1013 hPa standard pressure. No
+invented indices, no formulas whose units could be wrong, and a visible footnote stating it
+is context, not a recommendation. The restraint is the point: it shows analytical judgement
+without fabricating science that couldn't be defended.
+
 ## 8. Scalability & future work (TODO)
 
 - Merge overlapping cached ranges and fill only true gaps (current version fetches the

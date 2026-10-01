@@ -154,6 +154,9 @@ UX highlights (the reasoning is in **DESIGN.md §7**):
   temperature first) and **virtual scrolling**, so a raw 10-minute query of tens of thousands
   of rows stays smooth.
 - **Exports:** the table downloads as **CSV / JSON / Excel**, and any chart as **PNG / SVG**.
+- **Point inspector:** click any point to compare that instant to the whole period on a
+  min–max scale (percentile, period average) with plain-language findings using standard
+  references (Beaufort scale, freezing point) — deliberately descriptive, not a recommendation.
 - Sensible defaults, explicit loading / empty / error states, units in headers, and the
   time zone made explicit — timestamps keep the backend's CET/CEST offset verbatim.
 

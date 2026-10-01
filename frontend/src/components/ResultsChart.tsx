@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import type { ApiResponse, DataRow } from "../types";
 import { DownloadMenu } from "./DownloadMenu";
+import { PointInspector } from "./PointInspector";
 import { baseName, downloadChartPNG, downloadChartSVG } from "../download";
 
 const LABELS = ["Temperature (ºC)", "Pressure (hpa)", "Speed (m/s)"];
@@ -75,7 +76,7 @@ function BandTooltip({ active, payload, label, meanKey, minKey, maxKey, unit }: 
  *  instant on every panel. Aggregated data is always drawn as a translucent min–max BAND
  *  with the mean as one crisp line on top (clean at any density, one day or a whole season);
  *  a "None" query has no min/max, so it is a single line. No gradient fill. */
-function Panel({ rows, series, height, xTick }: { rows: DataRow[]; series: Series[]; height: number; xTick: (iso: string) => string }) {
+function Panel({ rows, series, height, xTick, onPointClick }: { rows: DataRow[]; series: Series[]; height: number; xTick: (iso: string) => string; onPointClick?: (datetime: string) => void }) {
   const meanS = series.find((s) => s.area) ?? series[0];
   const minS = series.find((s) => s.key.endsWith(" min"));
   const maxS = series.find((s) => s.key.endsWith(" max"));
@@ -84,7 +85,13 @@ function Panel({ rows, series, height, xTick }: { rows: DataRow[]; series: Serie
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <ComposedChart data={rows} syncId={SYNC_ID} margin={{ top: 14, right: 20, bottom: 0, left: 0 }}>
+      <ComposedChart
+        data={rows}
+        syncId={SYNC_ID}
+        margin={{ top: 14, right: 20, bottom: 0, left: 0 }}
+        onClick={onPointClick ? (s: any) => { if (s?.activeLabel) onPointClick(String(s.activeLabel)); } : undefined}
+        style={onPointClick ? { cursor: "pointer" } : undefined}
+      >
         <CartesianGrid vertical={false} stroke="#eef2f7" />
         <XAxis dataKey="Datetime" tickFormatter={xTick} minTickGap={44} fontSize={11} height={20} tickLine={false} axisLine={false} />
         <YAxis domain={["auto", "auto"]} width={48} fontSize={11} tickLine={false} axisLine={false} />
@@ -158,7 +165,7 @@ function ZoomBar({ rows, dataKey, onChange }: { rows: DataRow[]; dataKey: string
 /** One panel plus its header (title, download PNG/SVG, enlarge). Holds a ref so the
  *  download menu can grab this panel's live <svg> and export exactly what is on screen. */
 function ChartBlock({
-  label, rows, series, height, xTick, namePrefix, onEnlarge,
+  label, rows, series, height, xTick, namePrefix, onEnlarge, onPointClick,
 }: {
   label: string;
   rows: DataRow[];
@@ -167,6 +174,7 @@ function ChartBlock({
   xTick: (iso: string) => string;
   namePrefix: string;
   onEnlarge: () => void;
+  onPointClick: (datetime: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const fname = `${namePrefix}_${label.replace(/[^a-z0-9]+/gi, "_").toLowerCase()}`;
@@ -190,7 +198,7 @@ function ChartBlock({
           <button type="button" className="expand-btn" title="Enlarge" onClick={onEnlarge}>⤢</button>
         </div>
       </div>
-      <Panel rows={rows} series={series} height={height} xTick={xTick} />
+      <Panel rows={rows} series={series} height={height} xTick={xTick} onPointClick={onPointClick} />
     </div>
   );
 }
@@ -198,6 +206,7 @@ function ChartBlock({
 export function ResultsChart({ result }: { result: ApiResponse }) {
   const rows = result.data;
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const [zoom, setZoom] = useState<{ start: number; end: number } | null>(null);
   const expandedRef = useRef<HTMLDivElement>(null);
 
@@ -206,7 +215,7 @@ export function ResultsChart({ result }: { result: ApiResponse }) {
     if (svg && expanded) fn(svg, `${baseName(result)}_${expanded.replace(/[^a-z0-9]+/gi, "_").toLowerCase()}`);
   };
 
-  useEffect(() => setZoom(null), [result]);
+  useEffect(() => { setZoom(null); setSelected(null); }, [result]);
 
   if (!rows.length) return null;
 
@@ -232,19 +241,23 @@ export function ResultsChart({ result }: { result: ApiResponse }) {
       <p className="charts-hint">Hover any panel to read all measurements at the same instant · drag the slider to zoom all.</p>
       <ZoomBar rows={rows} dataKey={overviewKey} onChange={setZoom} />
 
-      <div className="panels">
-        {present.map((label) => (
-          <ChartBlock
-            key={label}
-            label={label}
-            rows={shown}
-            series={seriesFor(label, aggregated, first)}
-            height={160}
-            xTick={xTick}
-            namePrefix={baseName(result)}
-            onEnlarge={() => setExpanded(label)}
-          />
-        ))}
+      <div className="charts-area">
+        <div className="panels">
+          {present.map((label) => (
+            <ChartBlock
+              key={label}
+              label={label}
+              rows={shown}
+              series={seriesFor(label, aggregated, first)}
+              height={160}
+              xTick={xTick}
+              namePrefix={baseName(result)}
+              onEnlarge={() => setExpanded(label)}
+              onPointClick={setSelected}
+            />
+          ))}
+        </div>
+        {selected && <PointInspector result={result} datetime={selected} onClose={() => setSelected(null)} />}
       </div>
 
       {expanded && (
