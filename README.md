@@ -1,4 +1,5 @@
 # Antártida Weather API
+<img width="1226" height="945" alt="image" src="https://github.com/user-attachments/assets/9e637218-f272-4bf9-b669-668b260999e4" />
 
 A small full-stack service that retrieves, caches and aggregates historical weather
 data from the **AEMET** Antarctic meteorological stations, built for the GS Inima
