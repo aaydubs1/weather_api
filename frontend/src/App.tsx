@@ -3,12 +3,11 @@ import { fetchData, fetchStations } from "./api";
 import { QueryForm } from "./components/QueryForm";
 import { ResultsChart } from "./components/ResultsChart";
 import { ResultsTable } from "./components/ResultsTable";
-import { CorrelateButton } from "./components/CorrelateButton";
+import { ResourcePanel } from "./components/ResourcePanel";
 import { DownloadMenu } from "./components/DownloadMenu";
 import { downloadCSV, downloadJSON, downloadXLSX } from "./download";
-import type { ApiResponse, MeasurementKey, QueryParams, Station } from "./types";
+import type { ApiResponse, QueryParams, Station } from "./types";
 
-const ALL_MEASUREMENTS: MeasurementKey[] = ["temperature", "pressure", "speed"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** "2025-12-01T00:00:00" -> "1 Dec 2025" */
@@ -25,7 +24,9 @@ export function App() {
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<"chart" | "table">("chart");
+  // "feasibility" is the default landing (the business conclusion); "chart"/"table" are the
+  // raw-data side ("Data"). See the UX rationale in DESIGN.md §7.
+  const [view, setView] = useState<"feasibility" | "chart" | "table">("feasibility");
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [lastParams, setLastParams] = useState<QueryParams | null>(null);
 
@@ -48,22 +49,14 @@ export function App() {
     }
   }
 
-  // Fetch the same query with a different set of measurements (used by "Correlate with…"
-  // when the current query has a single measurement and the user wants to add others).
-  const fetchFor = (measurements: MeasurementKey[]) =>
-    fetchData({ ...lastParams!, measurements });
-
-  // Measurements actually in the current result (empty request means "all three").
-  const currentMeasurements: MeasurementKey[] =
-    lastParams?.measurements?.length ? lastParams.measurements : ALL_MEASUREMENTS;
-
+  const inData = view !== "feasibility";
   const hasData = !loading && !error && result && result.count > 0;
 
   return (
     <div className="app">
       <header className="header">
-        <h1>Antártida Weather Explorer</h1>
-        <p>Historical weather data from the AEMET Antarctic stations.</p>
+        <h1>Antártida — Wind &amp; Solar Feasibility Explorer</h1>
+        <p>Could on-site renewables cut a Spanish Antarctic base's diesel use? Historical AEMET data, as decision-support.</p>
       </header>
 
       <main className="layout">
@@ -97,13 +90,6 @@ export function App() {
                       ⚙ Edit search
                     </button>
                   )}
-                  {view === "chart" && (
-                    <CorrelateButton
-                      current={result!}
-                      currentMeasurements={currentMeasurements}
-                      fetchFor={fetchFor}
-                    />
-                  )}
                   {view === "table" && (
                     <DownloadMenu
                       items={[
@@ -113,19 +99,32 @@ export function App() {
                       ]}
                     />
                   )}
+                  {/* Primary nav: the business report vs the raw data. */}
                   <div className="toggle">
-                    <button className={view === "chart" ? "on" : ""} onClick={() => setView("chart")}>Chart</button>
-                    <button className={view === "table" ? "on" : ""} onClick={() => setView("table")}>Table</button>
+                    <button className={!inData ? "on" : ""} onClick={() => setView("feasibility")}>Feasibility</button>
+                    <button className={inData ? "on" : ""} onClick={() => setView(inData ? view : "chart")}>Data</button>
                   </div>
+                  {inData && (
+                    <div className="toggle">
+                      <button className={view === "chart" ? "on" : ""} onClick={() => setView("chart")}>Chart</button>
+                      <button className={view === "table" ? "on" : ""} onClick={() => setView("table")}>Table</button>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {view === "chart" ? <ResultsChart result={result!} /> : <ResultsTable result={result!} />}
+              {view === "feasibility" ? (
+                <ResourcePanel result={result!} />
+              ) : view === "chart" ? (
+                <ResultsChart result={result!} />
+              ) : (
+                <ResultsTable result={result!} />
+              )}
             </>
           )}
 
           {!loading && !error && !result && (
-            <p className="hint">Choose the parameters and press <strong>Query</strong>.</p>
+            <p className="hint">Choose the parameters and press <strong>Search</strong>.</p>
           )}
         </section>
       </main>

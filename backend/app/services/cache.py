@@ -43,7 +43,13 @@ def _read(session, station_id: str, start: datetime, end: datetime) -> list[dict
         .order_by(MeasurementRow.fhora_utc)
     )
     return [
-        {"fhora": r.fhora_utc.isoformat(), "temp": r.temp, "pres": r.pres, "vel": r.vel, "nombre": r.nombre}
+        {
+            "fhora": r.fhora_utc.isoformat(),
+            "temp": r.temp, "pres": r.pres, "vel": r.vel,
+            "dir": r.wind_dir, "velmax": r.gust,
+            "solar": r.solar, "humidity": r.humidity, "dir_std": r.dir_std,
+            "nombre": r.nombre,
+        }
         for r in session.execute(stmt).scalars().all()
     ]
 
@@ -59,6 +65,13 @@ def _store(session, station_id: str, raw_rows: list[dict]) -> None:
             "temp": _num(row.get("temp")),
             "pres": _num(row.get("pres")),
             "vel": _num(row.get("vel")),
+            # AEMET Antarctic field names: ddd = mean wind direction (°), velx = gust (m/s),
+            # radWM2 = solar irradiance (W/m²), hr = humidity (%), dddstd = direction std (°).
+            "wind_dir": _num(row.get("ddd")),
+            "gust": _num(row.get("velx")),
+            "solar": _num(row.get("radWM2")),
+            "humidity": _num(row.get("hr")),
+            "dir_std": _num(row.get("dddstd")),
             "nombre": row.get("nombre"),
         }
         # INSERT OR IGNORE on the (station, datetime) unique key -> idempotent.

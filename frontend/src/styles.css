@@ -187,6 +187,10 @@ body {
 .scale-dot { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; transform: translate(-50%, -50%); box-shadow: 0 1px 2px rgba(15, 34, 51, 0.25); }
 .scale-ends { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 6px; }
 .metric-finding { font-size: 12px; color: var(--ink); margin-top: 6px; }
+.wind-extra { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 2px; }
+.wind-extra .metric-name { font-size: 11px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; color: var(--muted); }
+.wind-extra-rows { display: flex; gap: 18px; margin-top: 6px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.wind-extra-rows b { color: var(--ink); }
 .inspector-foot { font-size: 10.5px; font-style: italic; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; margin-top: 4px; }
 
 /* Mobile: the side panel becomes a centered modal. */
@@ -207,6 +211,11 @@ body {
 .chart-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 .chart-title { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); }
 .chart-tools { display: inline-flex; align-items: center; gap: 2px; }
+
+/* Custom wind-panel legend (with "i" tooltips on the overlays) */
+.wind-legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px; list-style: none; margin: 0; padding: 4px 0 0; font-size: 12px; color: var(--ink); }
+.wind-legend li { display: inline-flex; align-items: center; gap: 5px; }
+.wl-swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; flex: none; }
 .expand-btn { border: none; background: transparent; cursor: pointer; color: var(--muted); font-size: 16px; line-height: 1; padding: 3px 7px; border-radius: 7px; }
 .expand-btn:hover { background: #f1f5f9; color: var(--accent); }
 
@@ -237,6 +246,105 @@ body {
 .ctip-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
 .ctip-name { color: var(--muted); }
 .ctip-val { margin-left: auto; font-weight: 700; color: var(--ink); }
+.ctip-extra { display: flex; align-items: center; gap: 8px; margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line); font-size: 11.5px; font-weight: 600; color: var(--ink); }
+
+/* ---- Resource (feasibility) panel ---- */
+.resource-intro { font-size: 13px; color: var(--muted); margin: 0 0 14px; max-width: 760px; }
+.report-headline {
+  display: flex; flex-wrap: wrap; gap: 20px; align-items: baseline;
+  padding: 12px 16px; background: #f0fbff; border: 1px solid #cffafe; border-radius: 12px;
+  margin-bottom: 8px; font-size: 12.5px; color: var(--muted);
+}
+.report-headline b { color: var(--ink); font-size: 16px; margin-left: 2px; }
+.section-title { font-size: 15px; font-weight: 700; color: var(--ink); margin: 26px 0 12px; display: flex; align-items: center; gap: 6px; }
+
+/* Solar opt-in switch (wind is the core; solar is an explicit hybrid add-on) */
+.solar-toggle { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; color: var(--ink); margin: 0 0 14px; user-select: none; }
+.solar-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.solar-switch { position: relative; width: 38px; height: 22px; border-radius: 999px; background: #cbd5e1; transition: background 0.15s ease; flex: none; }
+.solar-knob { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.15s ease; box-shadow: 0 1px 2px rgba(15, 34, 51, 0.2); }
+.solar-toggle input:checked + .solar-switch { background: var(--accent); }
+.solar-toggle input:checked + .solar-switch .solar-knob { transform: translateX(16px); }
+.solar-toggle input:focus-visible + .solar-switch { outline: 2px solid var(--accent); outline-offset: 2px; }
+.econ-sub { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+.resource-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; align-items: start; }
+.res-unit { font-size: 13px; font-weight: 500; color: var(--muted); }
+/* Full-width chart cards in the feasibility report */
+.res-card.wide { margin-top: 0; }
+.density-link { font-size: 12.5px; line-height: 1.5; color: var(--muted); margin: 10px 2px 2px; padding-top: 10px; border-top: 1px solid var(--line); }
+.density-link b { color: var(--accent); }
+.compl-head { font-size: 13px; color: var(--ink); margin: 0 0 8px; }
+.compl-head b { color: var(--accent); margin: 0 4px; }
+.compl-verdict { color: var(--muted); display: block; margin-top: 2px; font-size: 12px; }
+.rose-caption { font-size: 11px; color: var(--muted); margin-top: 6px; text-align: center; }
+.res-card, .res-stats, .rose-card {
+  border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: #fff;
+}
+.res-label { font-size: 11px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; color: var(--muted); }
+.res-big { font-size: 34px; font-weight: 700; color: var(--accent); margin: 2px 0 10px; }
+
+.band-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: #eef4f8; }
+.band-bar .seg { height: 100%; }
+.seg.below, .dot.below { background: #cbd5e1; }
+.seg.in, .dot.in { background: #0e7490; }
+.seg.above, .dot.above { background: #1e293b; }
+.band-legend { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; font-size: 11.5px; color: var(--muted); }
+.band-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+
+.rose-card { display: flex; flex-direction: column; align-items: center; }
+.windrose { width: 100%; max-width: 220px; height: auto; margin-top: 4px; }
+
+.res-stats { display: flex; flex-direction: column; gap: 0; }
+.res-stat { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 9px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.res-stat:first-child { border-top: none; }
+.res-stat span { font-size: 12.5px; color: var(--muted); }
+.res-stat b { font-size: 16px; color: var(--ink); margin-left: auto; }
+.res-stat em { flex-basis: 100%; font-style: normal; font-size: 10.5px; color: #94a3b8; text-align: right; }
+
+/* Economic estimate */
+.econ { margin-top: 0; }
+.econ-hero {
+  font-size: 15px; line-height: 1.55; color: var(--ink);
+  background: #f0fbff; border: 1px solid #cffafe; border-radius: 12px;
+  padding: 14px 16px; margin: 0 0 14px;
+}
+.econ-hero b { color: var(--accent); }
+.econ-presets { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.econ-presets button {
+  border: 1px solid var(--line); background: #fff; color: var(--accent);
+  border-radius: 999px; padding: 5px 13px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.econ-presets button:hover { background: #ecfeff; border-color: var(--accent); }
+.econ-sliders { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 14px; }
+.econ-sliders label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); min-width: 200px; flex: 1; }
+.econ-sliders label b { color: var(--ink); font-size: 14px; }
+.econ-sliders input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+.energy-mix { margin: 4px 0 18px; }
+.mix-label { font-size: 11px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.mix-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #eef4f8; }
+.mix-seg.wind { background: #0e7490; }
+.mix-seg.solar { background: #f59e0b; }
+.mix-legend { display: flex; gap: 18px; margin-top: 8px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.mix-legend .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 6px; vertical-align: middle; }
+.mix-legend .dot.wind { background: #0e7490; }
+.mix-legend .dot.solar { background: #f59e0b; }
+.econ-inputs { display: flex; flex-wrap: wrap; gap: 14px; margin: 12px 0 16px; }
+.econ-inputs label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 600; color: var(--muted); }
+.econ-inputs input {
+  width: 110px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+  font-size: 14px; color: var(--ink); background: #fff; outline: none;
+}
+.econ-inputs input:focus { border-color: var(--accent); }
+.econ-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.econ-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: #fbfdff; }
+.econ-card span { font-size: 11.5px; color: var(--muted); }
+.econ-card b { display: block; font-size: 22px; color: var(--accent); margin-top: 2px; }
+.econ-card em { font-style: normal; font-size: 10.5px; color: #94a3b8; }
+
+.resource-foot { font-size: 10.5px; font-style: italic; color: var(--muted); margin-top: 16px; line-height: 1.5; }
+.hint.small { padding: 12px 4px; }
+
 
 /* ---- Table ---- */
 .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
@@ -280,9 +388,12 @@ th.sortable.active .th-arrow { color: var(--accent); }
 .infotip { position: relative; display: inline-flex; align-items: center; cursor: help; }
 .infotip svg { display: block; }
 .infotip-circle { transition: fill 0.12s ease; }
+.infotip-glyph { fill: #fff; }  /* the "i" letter is always white, on grey or accent */
 .infotip:hover .infotip-circle,
 .infotip:focus .infotip-circle { fill: var(--accent); }
-.infotip-bubble {
+/* Higher specificity (.infotip .infotip-bubble) so card label rules like `.econ-card span`
+   or `.res-stat span { color: var(--muted) }` can't override the bubble's white text. */
+.infotip .infotip-bubble {
   position: absolute; bottom: 150%; left: 50%; transform: translateX(-50%);
   width: 240px; background: #0f2233; color: #fff;
   font-size: 11px; font-weight: 400; font-style: normal; line-height: 1.45;

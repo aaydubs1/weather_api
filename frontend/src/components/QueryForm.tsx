@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { DayPicker, type DateRange } from "react-day-picker";
+import { InfoTip } from "./InfoTip";
 import type { Aggregation, MeasurementKey, QueryParams, Station } from "../types";
 
 const AGGREGATIONS: Aggregation[] = ["None", "Hourly", "Daily", "Monthly"];
@@ -68,18 +69,6 @@ function useIsNarrow(query = "(max-width: 640px)"): boolean {
   return narrow;
 }
 
-function InfoTip({ text }: { text: string }) {
-  return (
-    <span className="infotip" tabIndex={0} aria-label={text}>
-      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
-        <circle className="infotip-circle" cx="8" cy="8" r="7.5" fill="#94a3b8" />
-        <circle cx="8" cy="4.6" r="1" fill="#fff" />
-        <rect x="7.15" y="6.7" width="1.7" height="5" rx="0.85" fill="#fff" />
-      </svg>
-      <span className="infotip-bubble">{text}</span>
-    </span>
-  );
-}
 
 const DATA_INFO =
   "Data availability: the Antarctic stations report mainly during the austral summer " +

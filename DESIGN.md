@@ -5,21 +5,95 @@
 > the goal is to show the reasoning, the trade-offs and the edge cases that were
 > considered — not just the final implementation.
 
-## 1. Understanding the real problem (not just the endpoint)
+## 1. The problem behind the problem
 
-On the surface this is "wrap the AEMET API". But the *business* context matters and
-it shaped several decisions:
+Taken literally, the brief is "wrap the AEMET Antarctic API". But a tool is only worth
+building if it answers a real decision, so the first question is *who would ask for a
+history of wind, temperature and pressure at the two Spanish Antarctic bases, and why?*
 
-- The Business Development team wants to assess the **feasibility of a wind farm in
-  Antarctica**. They explicitly care about **wind patterns and temperature extremes**.
-- **Implication:** when we aggregate (hourly / daily / monthly), returning only the
-  **mean** would hide exactly what they need — the extremes. So the aggregation keeps
-  `mean`, `min` and `max` (and a sample `count`) per bucket, not just the average.
-  This is a small decision with real analytical value, and it is cheap to compute.
-- The service will later receive **thousands of requests** (Part 2) and be **critical
-  during business hours**, but the **source only updates a few times a day**. That
-  asymmetry is the whole justification for the cache: the data is essentially
-  immutable historical data, so caching is safe and high-impact.
+### The stakeholder and the decision
+
+The credible internal customer is a **sustainability / infrastructure feasibility analyst**
+— the kind of profile an environmental and utilities company (GS Inima's world) would put
+on this — studying whether to invest in **on-site renewable (wind) generation to cut the
+base's diesel dependence**. Antarctic research stations run on diesel generators whose fuel
+is shipped or flown in at very high cost and environmental impact, and the bases operate
+only during the austral-summer campaign. The decision the tool must support is therefore
+one of **techno-economic feasibility**:
+
+- *Technical:* is the wind resource strong, steady and inside a turbine's operating
+  envelope **enough of the time** to generate reliably?
+- *Economic:* would the energy produced **displace enough diesel** to justify the
+  investment, including the premium of cold-climate hardware?
+
+### Why these variables are exactly the right ones
+
+This is not a narrative stretched onto the data — the measurements map directly onto a
+turbine's **operating thresholds** (figures cited in the README references, not invented):
+
+- **Wind speed** is the resource. A turbine only produces inside a band: it starts
+  (*cut-in*) at ≈3 m/s, reaches rated power at ≈12–15 m/s, and shuts down for safety
+  (*cut-out*) at ≈25 m/s, and power scales with the **cube** of speed. So what matters is
+  how much of the time the wind sits in that productive band — not its bare average.
+- **Temperature** decides whether the turbine can run *and at what cost*: standard machines
+  operate to ≈−10 °C and survive to ≈−20 °C; cold-climate packages reach ≈−30 °C but burn
+  parasitic power heating components, and sub-zero + moisture brings blade **icing**, which
+  cuts output or forces shutdown.
+- **Pressure with temperature** give **air density** (ρ = P/RT), and power is proportional
+  to density. Cold, dense Antarctic air yields *more* power for the same wind speed than a
+  temperate site — a genuine point in the project's favour, and one that uses both variables.
+- **Wind direction and gusts** (AEMET fields `ddd`, `velx`) are part of resource quality: a steady
+  prevailing direction means better siting and less turbulence/fatigue. They exist in the
+  AEMET source even though the brief only named temperature, pressure and speed, so they can
+  be added without changing the data source.
+
+The interviewer's key hint was that a turbine's **operating thresholds** are "where all the
+factors come in — speed, direction, pressure and temperature." They do not act separately:
+they all shape the **power curve and the operating envelope**. This is the mapping the tool is
+built around:
+
+| Variable | How it enters the turbine's operating thresholds |
+|---|---|
+| **Wind speed** | The axis of the power curve: cut-in ≈3, rated ≈12–15, cut-out ≈25 m/s. Drives the capacity factor. |
+| **Pressure + temperature** | Together give **air density** (ρ = P/RT); power ∝ density, so cold dense air **shifts the power curve up** — it raises the capacity factor for the same wind. Surfaced explicitly (CF "+X% from air density"). |
+| **Temperature** | Also sets the **cold operating limit** (standard ≈−10 °C, cold-climate package to ≈−30 °C) and, with humidity, the **icing** risk that cuts output. |
+| **Wind direction** | Siting and turbulence/fatigue — a steady prevailing direction (low `dddstd`) is a better, more constant resource. |
+
+So pressure and temperature are not decorative: they move the turbine's effective output
+through density, which is exactly where the operating thresholds "come in."
+
+### The honesty guardrail (and a correctness prerequisite)
+
+Three variables at a point can *describe* conditions; they cannot *pronounce* a site
+buildable. So the tool is deliberately **decision-support, not a verdict**: it reports the
+resource against **cited, standard references** (the turbine operating band, cold-climate
+limits, standard air density of 1.225 kg/m³) and models the economics as a **transparent
+calculation driven by the analyst's own assumptions** (turbine rating, delivered diesel
+price, O&M, cold-climate premium) — never a single fabricated "it pays off".
+
+This rests on a unit that every turbine threshold depends on, so it was **verified, not
+assumed**: AEMET's *observation* products report wind in **m/s** (checked against the
+observation-network field metadata, where `vv`/`vmax` are documented in m/s), while only the
+*forecast* products use km/h. The Antarctic dataset is an observation product and the brief
+maps `vel → Speed (m/s)`, so `vel` is in m/s. A final confirmation against the live
+`metadatos` of an `antartida` response is noted in §8.
+
+### What this means for scope
+
+The parts the brief requires — the endpoint, DST-correct output, aggregation that keeps
+`min`/`max` (the extremes a resource study needs, e.g. cut-out-speed events), the cache, and
+the table/chart UI — are **built and tested**. The reframing above is what the remaining
+work serves: a **resource & techno-economic feasibility layer** (wind-band and
+direction summary, air-density-adjusted resource, temperature/icing operability, and an
+assumption-driven economic estimate). Whatever is not yet built is marked `TODO` and listed
+in §8, so this document separates clearly what runs today from the direction it is taking.
+
+**Wind is the core; solar is an opt-in extension.** The system the brief centres on is a
+*wind* turbine, so the report is wind-first by default. But the real business goal is cutting
+diesel, which in practice is done with **hybrids** — and the AEMET source already carries solar
+irradiance (`radWM2`) — so the app offers a **toggle** to add solar and model a wind + solar
+hybrid. Making it an explicit opt-in keeps the deliverable honest about its scope: the solar
+work is a reasoned extension of the business question, not a feature bolted onto the brief.
 
 ## 2. Key technical challenges identified up front
 
@@ -81,6 +155,11 @@ built on a **consistent local day**, and that the assumption is explicit. (See T
 
 - `estado != 200` from AEMET (e.g. 404 "no data for range") → mapped to a clean HTTP
   error, not a 500.
+- **Transient AEMET failures** (HTTP 429/503/5xx, which AEMET returns under load) → retried a
+  few times with backoff, then surfaced as a clean 502 with a "try again shortly" message
+  rather than crashing the request.
+- **Secret safety** → the AEMET `api_key` travels only in the request params, never in log
+  messages, and the `httpx` request logger is raised to WARNING so the key is never logged.
 - Empty result set → return `[]` with 200, not an error.
 - Missing/`null` measurements in a bucket → excluded from mean/min/max (pandas skips NaN).
 - Decimal comma vs dot in AEMET numeric strings → normalised on parse.
@@ -106,6 +185,18 @@ The reviewer stressed that the interface must be understandable at a glance. The
 is not a thin wrapper over the API; each UX decision below was made to remove a specific
 source of confusion. The guiding principle: **the interface should teach the user about
 the data, not just display it.**
+
+### 7.0 Information architecture: a report, with the data behind it
+
+The app is organised around the business decision, not the raw endpoint. After a search it
+opens on **Feasibility** — a one-page report that reads top to bottom as the analysis would:
+wind resource (productive band, power curve vs wind distribution, wind rose) → solar and the
+**wind–solar hybrid** (complementarity) → operability (icing, air density, data quality) →
+the **economic estimate**. A second area, **Data**, holds the raw material behind that
+report: the time-series **charts** (with the point inspector) and the **table** (with
+exports). This separation — conclusion first, evidence a click away — is what makes the
+deliverable read as a decision-support tool rather than a data viewer, and it is why the
+default landing is the report, not the chart.
 
 ### 7.1 Search as a familiar, scannable header
 
@@ -230,6 +321,38 @@ is context, not a recommendation. The restraint is the point: it shows analytica
 without fabricating science that couldn't be defended.
 
 ## 8. Scalability & future work (TODO)
+
+**Techno-economic feasibility layer (the direction set out in §1 — in progress):**
+
+- **Units:** `vel` is in **m/s** — AEMET observation products report wind in m/s (verified
+  against the observation-network metadata; forecasts use km/h). Done; a final check against a
+  live `antartida` `metadatos` response is still worth doing before publishing feasibility
+  numbers.
+- **Wind direction (`ddd`) and gust (`velx`) — done:** both are pulled from the source,
+  cached, and returned. Shown with wind speed; aggregation uses the **circular mean** for
+  direction (degrees don't average arithmetically) and the **bucket maximum** for gust.
+- **Technical resource summary — done** (a third "Resource" view): % of time in the
+  productive wind band (3–25 m/s), a **wind rose** with direction steadiness (`dddstd`), mean
+  wind and steadiness (coefficient of variation), a **solar resource** card (mean irradiance
+  `radWM2` + indicative kWh/m²·day — opening a **wind + solar hybrid**, which is how Antarctic
+  bases actually cut diesel), an **icing-risk** indicator refined with humidity (`hr`): cold
+  *and* moist, not just sub-zero, temperature operability (below the −10 °C limit), **air
+  density** (ρ = P/RT, vs 1.225), and **data completeness**. All descriptive, against cited
+  references. Refinement TODO: speed-weight the wind rose and compute band/operability on
+  reading-level (None) data for precision.
+- **Economic estimate — done** (in the Resource view): each reading is mapped through a
+  shared **power curve** (`feasibility.ts`, cubic cut-in→rated, flat to cut-out) to a
+  **capacity factor** (computed per reading then averaged — never from the mean speed, since
+  power is convex). An **assumption-driven** model with user inputs (turbine kW, PV kWp,
+  diesel L/kWh, €/L, system cost) yields hybrid **wind + solar energy**, diesel displaced,
+  cost and CO₂ avoided, and an indicative payback. The capacity factor is **density-corrected**
+  (ρ = P/RT: cold, dense Antarctic air yields a little more power, capped at rated). Transparent
+  inputs, no single fabricated verdict. The wind chart also carries a green **"output potential"
+  overlay** — the same power curve applied over time, so the productive periods are visible at a
+  glance (and the band 3–25 m/s with cut-in/cut-out markers). The power-curve, capacity-factor and
+  correlation functions live in `feasibility.ts` and are **unit-tested** (Vitest).
+
+**Platform / robustness:**
 
 - Merge overlapping cached ranges and fill only true gaps (current version fetches the
   whole requested range if not fully covered).

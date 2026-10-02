@@ -28,3 +28,12 @@ FIELD_LABEL: dict[Measurement, str] = {
     Measurement.pressure: "Pressure (hpa)",
     Measurement.speed: "Speed (m/s)",
 }
+
+# Wind extras (not user-selectable measurements): shown alongside wind speed. Direction is
+# in degrees (0–360, meteorological: where the wind comes from); gust is in m/s.
+WIND_DIR_LABEL = "Wind direction (°)"
+GUST_LABEL = "Gust (m/s)"
+# Environmental extras for the feasibility layer (solar enables a wind+solar hybrid story).
+SOLAR_LABEL = "Solar irradiance (W/m²)"
+HUMIDITY_LABEL = "Humidity (%)"
+DIR_STD_LABEL = "Direction variability (°)"

@@ -1,8 +1,18 @@
-# Antártida Weather API
+# Antártida — Wind Resource & Feasibility Explorer
 
-A small full-stack service that retrieves, caches and aggregates historical weather
-data from the **AEMET** Antarctic meteorological stations, built for the GS Inima
-Development Challenge.
+A full-stack service that retrieves, caches and aggregates historical weather data from the
+two **AEMET** Spanish Antarctic stations, built for the GS Inima Development Challenge.
+
+**The problem behind the problem.** Beyond "wrap the AEMET API", this tool is designed to
+support a real decision: whether **on-site wind generation could reduce a Spanish Antarctic
+base's reliance on diesel**. Those bases run on diesel generators whose fuel is shipped or
+flown in at high cost and environmental impact, so the question a sustainability /
+infrastructure analyst actually asks is one of **techno-economic feasibility** — is the wind
+resource strong, steady and within a turbine's operating envelope enough of the time
+(technical), and would it displace enough diesel to pay off (economic)? The three (really
+four) variables map directly onto turbine operating thresholds, which is why they are the
+right data to analyse. The full reasoning is in **[DESIGN.md §1](./DESIGN.md)**; the tool
+stays **decision-support, not a verdict** (see References for the cited thresholds).
 
 - **Backend:** Python · FastAPI · pandas · SQLAlchemy (SQLite)
 - **Frontend:** React · TypeScript · Vite · Recharts
@@ -148,6 +158,14 @@ Output is a JSON object `{ station, aggregation, timezone, count, data[] }`. Eve
 in winter). For aggregated queries each measurement includes `mean`, `min` and `max`
 (the business case is about extremes, not just averages — see DESIGN.md).
 
+When wind **speed** is included (or no filter is given), each row also carries the extras the
+feasibility layer needs: `Wind direction (°)`, `Gust (m/s)`, `Solar irradiance (W/m²)`,
+`Humidity (%)` and `Direction variability (°)`. In aggregated views direction is the
+**circular mean** (350° and 10° average to 0°, not 180°), gust becomes the bucket's `Peak
+gust (m/s)`, and the rest are bucket means. Units are **m/s** for wind (AEMET observation
+products; verified — see DESIGN §1). These map to the real AEMET Antarctic field names
+(`ddd`, `velx`, `radWM2`, `hr`, `dddstd`).
+
 ### Tests
 
 ```bash
@@ -156,8 +174,17 @@ pytest -q
 ```
 
 The tests cover time-zone parsing, the DST boundary (summer `+02:00` vs winter `+01:00`),
-hourly/daily aggregation (daily bucketed by the station's local day), the two-step AEMET
-flow (mocked), the endpoint, and that a repeated request is served from the cache.
+hourly/daily aggregation (daily bucketed by the station's local day), the wind extras
+(circular-mean direction, peak gust, solar/humidity), the two-step AEMET flow (mocked, with
+a transient-503 retry case), the endpoint, and the cache (hit **and** miss).
+
+The frontend's business logic is unit-tested too (power curve, capacity factor, wind–solar
+correlation):
+
+```bash
+cd frontend
+npm test     # vitest
+```
 
 ---
 
@@ -166,8 +193,8 @@ flow (mocked), the endpoint, and that a repeated request is served from the cach
 Run it as shown in **Quick start** above (`npm install` then `npm run dev`).
 
 Open <http://localhost:5173>. Pick a station, a date range, an aggregation and the
-measurements, then press **Search**. Results are shown as a **chart** and a **table**
-(toggle between them).
+measurements, then press **Search**. The app opens on the **Feasibility** report (the
+business conclusion); a **Data** tab holds the raw time-series **charts** and the **table**.
 
 UX highlights (the reasoning is in **DESIGN.md §7**):
 
@@ -175,11 +202,12 @@ UX highlights (the reasoning is in **DESIGN.md §7**):
   **austral-summer presets**, plus an **info tooltip** — because the stations only report
   in the austral summer, the UI steers you to ranges that actually have data instead of
   letting you hit an empty result.
-- **Three linked panels** (one per measurement) with a **synchronized cursor** and a shared
-  **range slider**, so you read all measurements at the same instant without cramming
-  different units onto one misleading axis. Any panel enlarges in a lightbox.
-- A **Correlate** action opens the combined multi-axis view on demand (and can fetch the
-  other measurements if only one was queried).
+- **Feasibility report first:** the app opens on the business conclusion, organised top to
+  bottom (wind resource → solar & hybrid → operability → economics), with the raw charts and
+  table one click away under **Data**.
+- In **Data → Charts**, **three linked panels** (one per measurement) with a **synchronized
+  cursor** and a shared **range slider**, so you read all measurements at the same instant
+  without cramming different units onto one misleading axis. Any panel enlarges in a lightbox.
 - The **table** has **sortable columns** (click a header to rank by that field, e.g. highest
   temperature first) and **virtual scrolling**, so a raw 10-minute query of tens of thousands
   of rows stays smooth.
@@ -187,6 +215,15 @@ UX highlights (the reasoning is in **DESIGN.md §7**):
 - **Point inspector:** click any point to compare that instant to the whole period on a
   min–max scale (percentile, period average) with plain-language findings using standard
   references (Beaufort scale, freezing point) — deliberately descriptive, not a recommendation.
+- **Feasibility report** contents: % of time in the productive wind band (3–25 m/s), a
+  **power curve vs wind distribution** chart, a **wind rose** with direction steadiness, a
+  **solar resource** card and a **wind–solar complementarity** chart (does solar fill the
+  wind's gaps? → the hybrid case), an **icing-risk** indicator (sub-zero *and* humid),
+  temperature operability, air density vs standard, data completeness, and an **economic
+  estimate** with adjustable assumptions (turbine kW, PV kWp, diesel price…) → a wind
+  **capacity factor**, hybrid energy, diesel displaced, cost and CO₂ avoided, and an
+  indicative payback. Every figure carries an **"i"** explaining it; all against cited
+  references (§1 and References), as decision-support rather than a verdict.
 - Sensible defaults, explicit loading / empty / error states, units in headers, and the
   time zone made explicit — timestamps keep the backend's CET/CEST offset verbatim.
 
@@ -199,9 +236,40 @@ UX highlights (the reasoning is in **DESIGN.md §7**):
   Europe/Madrid with a DST-aware offset via the stdlib `zoneinfo`.
 - **Daily/Monthly aggregation buckets by the station's local calendar day/month**, as the
   brief requires.
-- **Aggregation keeps mean + min + max** because the wind-farm feasibility case is about
-  extremes.
+- **Aggregation keeps mean + min + max** because the wind-resource feasibility case is about
+  extremes (e.g. cut-out-speed events), not just averages.
 - **Read-through SQLite cache** with a record of already-fetched ranges, so AEMET is only
   called for data we have never retrieved (Part 2).
 
 Full reasoning, alternatives considered and TODOs: **[DESIGN.md](./DESIGN.md)**.
+
+---
+
+## Development note
+
+Built with AI assistance, as the brief encourages ("Vibe Coding"). The AI was used to move
+fast, but **every decision was reviewed, justified and documented** — the reasoning lives in
+**[DESIGN.md](./DESIGN.md)**, the domain figures are cited below rather than invented, and the
+core logic (time zones/DST, aggregation, caching, the power-curve/capacity-factor model) is
+covered by tests on both the backend (pytest) and the frontend (Vitest).
+
+---
+
+## References
+
+The feasibility framing relies on standard, citable figures — not invented numbers. The
+tool reports against these references and never claims an engineering verdict.
+
+- **Turbine operating speeds** (cut-in ≈3 m/s, rated ≈12–15 m/s, cut-out ≈25 m/s):
+  [What Are Cut-in, Rated, and Cut-out Wind Speeds?](https://eureka.patsnap.com/article/what-are-cut-in-rated-and-cut-out-wind-speeds)
+- **Cold-climate operating limits** (standard ≈−10 °C operation / −20 °C survival; cold
+  packages to ≈−30 °C; icing losses):
+  [IEA Wind RP-13 — Wind energy projects in cold climates](https://iea-wind.org/wp-content/uploads/2022/12/RP-13-Cold-Climate.pdf) ·
+  [IEA Wind Task 19 — Available Technologies](https://www.vaisala.com/sites/default/files/documents/Task%2019_Available_Technologies_report_WEinCC_May2016_approved.pdf)
+- **Air density and power** (power ∝ ρ, ρ = P/RT, standard 1.225 kg/m³ at 15 °C; cold dense
+  air yields more power):
+  [The Missing Link Between Air Density and Wind Power Production](https://www.technologyreview.com/2011/03/15/196333/the-missing-link-between-air-density-and-wind-power-production/)
+- **Precedent for techno-economic renewable analysis in Antarctica:**
+  [Techno-economic analysis of renewable energy generation at the South Pole](https://arxiv.org/pdf/2306.13552)
+- **AEMET source fields** (the Antarctic dataset provides wind direction `ddd` and gust `velx`):
+  [AEMET observation field help](https://www.aemet.es/en/eltiempo/observacion/ultimosdatos/ayuda)

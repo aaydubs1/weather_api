@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Area, Brush, CartesianGrid, ComposedChart, Legend, Line, LineChart,
-  ResponsiveContainer, Tooltip, XAxis, YAxis,
+  ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import type { ApiResponse, DataRow } from "../types";
 import { DownloadMenu } from "./DownloadMenu";
+import { InfoTip } from "./InfoTip";
 import { PointInspector } from "./PointInspector";
 import { baseName, downloadChartPNG, downloadChartSVG } from "../download";
+import { CUT_IN, CUT_OUT, powerFraction } from "../feasibility";
 
 const LABELS = ["Temperature (ºC)", "Pressure (hpa)", "Speed (m/s)"];
+const WIND_LABEL = "Speed (m/s)";
+// Turbine productive band (cited in README): cut-in 3 m/s, cut-out 25 m/s.
+const OP_BAND = { min: CUT_IN, max: CUT_OUT };
 const SYNC_ID = "weather";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -47,8 +52,37 @@ const fmtDate = (iso: string) => { const p = isoParts(iso); return `${p.d} ${MON
 const fmtTime = (iso: string) => isoParts(iso).time;
 const fmtDateTime = (iso: string) => { const p = isoParts(iso); return `${p.d} ${MONTHS[p.m - 1]}, ${p.time}`; };
 
-/** Tooltip for the dense band view: reads the hovered row and lists Max / Mean / Min. */
-function BandTooltip({ active, payload, label, meanKey, minKey, maxKey, unit }: any) {
+/** Custom legend for the wind panel. Fixed entries (not Recharts' series payload) so the
+ *  two overlays — Output potential and Operating band — always appear, each with an "i". */
+function WindLegend({ banded }: { banded?: boolean }) {
+  const items = [
+    { label: "Mean", color: PALETTE.mean },
+    ...(banded ? [{ label: "Min–Max", color: PALETTE.band }] : []),
+    {
+      label: "Output potential", color: "#10b981",
+      info: "Output potential: the share of rated power the turbine would make at each moment, from the standard power curve — none below 3 m/s, rising to full near 12, and nothing above the 25 m/s cut-out.",
+    },
+    {
+      label: `Operating band ${CUT_IN}–${CUT_OUT} m/s`, color: "#94a3b8",
+      info: "Operating band: a turbine only generates between cut-in (3 m/s) and cut-out (25 m/s); the dashed lines mark those limits.",
+    },
+  ];
+  return (
+    <ul className="wind-legend">
+      {items.map((it) => (
+        <li key={it.label}>
+          <span className="wl-swatch" style={{ background: it.color }} />
+          <span>{it.label}</span>
+          {it.info && <InfoTip text={it.info} />}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Tooltip for the dense band view: reads the hovered row and lists Max / Mean / Min.
+ *  On the wind panel it also shows the output potential and the operating-band status. */
+function BandTooltip({ active, payload, label, meanKey, minKey, maxKey, unit, wind }: any) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload ?? {};
   const line = (name: string, key: string, color: string) => {
@@ -62,12 +96,23 @@ function BandTooltip({ active, payload, label, meanKey, minKey, maxKey, unit }: 
       </div>
     );
   };
+  const meanVal = row[meanKey];
+  const showWind = wind && typeof meanVal === "number";
+  const status = typeof meanVal === "number"
+    ? (meanVal < CUT_IN ? "below cut-in" : meanVal > CUT_OUT ? "above cut-out" : "in operating band")
+    : "";
   return (
     <div className="ctip">
       <div className="ctip-time">{fmtDateTime(String(label))}</div>
       {line("Max", maxKey, PALETTE.band)}
       {line("Mean", meanKey, PALETTE.mean)}
       {line("Min", minKey, PALETTE.band)}
+      {showWind && (
+        <div className="ctip-extra">
+          <span className="ctip-dot" style={{ background: "#10b981" }} />
+          Output potential {Math.round(powerFraction(meanVal) * 100)}% · {status}
+        </div>
+      )}
     </div>
   );
 }
@@ -76,7 +121,7 @@ function BandTooltip({ active, payload, label, meanKey, minKey, maxKey, unit }: 
  *  instant on every panel. Aggregated data is always drawn as a translucent min–max BAND
  *  with the mean as one crisp line on top (clean at any density, one day or a whole season);
  *  a "None" query has no min/max, so it is a single line. No gradient fill. */
-function Panel({ rows, series, height, xTick, onPointClick }: { rows: DataRow[]; series: Series[]; height: number; xTick: (iso: string) => string; onPointClick?: (datetime: string) => void }) {
+function Panel({ rows, series, height, xTick, onPointClick, opBand }: { rows: DataRow[]; series: Series[]; height: number; xTick: (iso: string) => string; onPointClick?: (datetime: string) => void; opBand?: { min: number; max: number } }) {
   const meanS = series.find((s) => s.area) ?? series[0];
   const minS = series.find((s) => s.key.endsWith(" min"));
   const maxS = series.find((s) => s.key.endsWith(" max"));
@@ -95,12 +140,41 @@ function Panel({ rows, series, height, xTick, onPointClick }: { rows: DataRow[];
         <CartesianGrid vertical={false} stroke="#eef2f7" />
         <XAxis dataKey="Datetime" tickFormatter={xTick} minTickGap={44} fontSize={11} height={20} tickLine={false} axisLine={false} />
         <YAxis domain={["auto", "auto"]} width={48} fontSize={11} tickLine={false} axisLine={false} />
+        {/* Wind only: the productive band (cut-in / cut-out) plus a green "output potential"
+            area — the share of rated power the turbine would make, via the shared power curve. */}
+        {opBand && (
+          <>
+            <defs>
+              <linearGradient id="prodGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#10b981" stopOpacity={0.28} />
+                <stop offset="100%" stopColor="#10b981" stopOpacity={0.03} />
+              </linearGradient>
+            </defs>
+            <ReferenceLine y={opBand.min} stroke="#94a3b8" strokeDasharray="4 3" ifOverflow="hidden"
+              label={{ value: `cut-in ${opBand.min}`, position: "insideBottomLeft", fontSize: 10, fill: "#64748b" }} />
+            <ReferenceLine y={opBand.max} stroke="#94a3b8" strokeDasharray="4 3" ifOverflow="hidden"
+              label={{ value: `cut-out ${opBand.max}`, position: "insideTopLeft", fontSize: 10, fill: "#64748b" }} />
+            <YAxis yAxisId="prod" hide domain={[0, 1]} />
+            <Area
+              yAxisId="prod"
+              type="monotone"
+              dataKey={(d: DataRow) => powerFraction(Number(d[meanS.key]))}
+              name="Output potential"
+              stroke="#10b981"
+              strokeWidth={1}
+              strokeOpacity={0.5}
+              fill="url(#prodGrad)"
+              isAnimationActive={false}
+              activeDot={false}
+            />
+          </>
+        )}
         {banded ? (
-          <Tooltip content={<BandTooltip meanKey={meanS.key} minKey={minS!.key} maxKey={maxS!.key} unit={unit} />} />
+          <Tooltip content={<BandTooltip meanKey={meanS.key} minKey={minS!.key} maxKey={maxS!.key} unit={unit} wind={!!opBand} />} />
         ) : (
           <Tooltip labelFormatter={(v: string) => fmtDateTime(v)} />
         )}
-        <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
+        <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} content={opBand ? <WindLegend banded={banded} /> : undefined} />
         {banded && (
           <Area
             type="monotone"
@@ -165,7 +239,7 @@ function ZoomBar({ rows, dataKey, onChange }: { rows: DataRow[]; dataKey: string
 /** One panel plus its header (title, download PNG/SVG, enlarge). Holds a ref so the
  *  download menu can grab this panel's live <svg> and export exactly what is on screen. */
 function ChartBlock({
-  label, rows, series, height, xTick, namePrefix, onEnlarge, onPointClick,
+  label, rows, series, height, xTick, namePrefix, onEnlarge, onPointClick, opBand,
 }: {
   label: string;
   rows: DataRow[];
@@ -175,6 +249,7 @@ function ChartBlock({
   namePrefix: string;
   onEnlarge: () => void;
   onPointClick: (datetime: string) => void;
+  opBand?: { min: number; max: number };
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const fname = `${namePrefix}_${label.replace(/[^a-z0-9]+/gi, "_").toLowerCase()}`;
@@ -198,7 +273,7 @@ function ChartBlock({
           <button type="button" className="expand-btn" title="Enlarge" onClick={onEnlarge}>⤢</button>
         </div>
       </div>
-      <Panel rows={rows} series={series} height={height} xTick={xTick} onPointClick={onPointClick} />
+      <Panel rows={rows} series={series} height={height} xTick={xTick} onPointClick={onPointClick} opBand={opBand} />
     </div>
   );
 }
@@ -254,6 +329,7 @@ export function ResultsChart({ result }: { result: ApiResponse }) {
               namePrefix={baseName(result)}
               onEnlarge={() => setExpanded(label)}
               onPointClick={setSelected}
+              opBand={label === WIND_LABEL ? OP_BAND : undefined}
             />
           ))}
         </div>
@@ -277,7 +353,7 @@ export function ResultsChart({ result }: { result: ApiResponse }) {
                 <button type="button" className="lightbox-close" onClick={() => setExpanded(null)}>×</button>
               </div>
             </div>
-            <Panel rows={shown} series={seriesFor(expanded, aggregated, first)} height={460} xTick={xTick} />
+            <Panel rows={shown} series={seriesFor(expanded, aggregated, first)} height={460} xTick={xTick} opBand={expanded === WIND_LABEL ? OP_BAND : undefined} />
           </div>
         </div>
       )}

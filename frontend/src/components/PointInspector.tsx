@@ -27,6 +27,11 @@ function beaufort(ms: number): { n: number; name: string } {
   return { n: 12, name: "Hurricane force" };
 }
 
+const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+function compass(deg: number): string {
+  return COMPASS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+}
+
 type Kind = "temperature" | "pressure" | "speed";
 function kindOf(label: string): Kind {
   if (label.startsWith("Temperature")) return "temperature";
@@ -37,7 +42,12 @@ function kindOf(label: string): Kind {
 /** Plain-language, defensible finding for one measurement (named scale / flag only). */
 function finding(kind: Kind, value: number): string {
   if (kind === "temperature") return value < 0 ? "Below freezing" : "Above freezing";
-  if (kind === "speed") { const b = beaufort(value); return `Beaufort ${b.n} (${b.name})`; }
+  if (kind === "speed") {
+    const b = beaufort(value);
+    // Tie wind directly to the turbine operating band (the feasibility question).
+    const band = value < 3 ? "below cut-in (3 m/s)" : value > 25 ? "above cut-out (25 m/s)" : "in the turbine's operating band";
+    return `Beaufort ${b.n} (${b.name}) · ${band}`;
+  }
   // Pressure vs the standard sea-level reference (1013 hPa).
   if (value < 1010) return "Below standard sea-level pressure (1013 hPa)";
   if (value > 1016) return "Above standard sea-level pressure (1013 hPa)";
@@ -103,6 +113,11 @@ export function PointInspector({ result, datetime, onClose }: { result: ApiRespo
   const metrics = buildMetrics(result, row);
   const aggregated = result.aggregation !== "None";
 
+  // Wind extras (new source fields) shown when present — direction and gust matter for siting.
+  const windDir = typeof row["Wind direction (°)"] === "number" ? (row["Wind direction (°)"] as number) : null;
+  const gustRaw = row["Gust (m/s)"] ?? row["Peak gust (m/s)"];
+  const gust = typeof gustRaw === "number" ? gustRaw : null;
+
   return (
     <>
       <div className="inspector-backdrop" onClick={onClose} />
@@ -137,6 +152,16 @@ export function PointInspector({ result, datetime, onClose }: { result: ApiRespo
             <div className="metric-finding">{finding(m.kind, m.value)}</div>
           </div>
         ))}
+
+        {(windDir !== null || gust !== null) && (
+          <div className="wind-extra">
+            <span className="metric-name">Wind detail</span>
+            <div className="wind-extra-rows">
+              {windDir !== null && <span>Direction <b>{compass(windDir)}</b> ({Math.round(windDir)}°)</span>}
+              {gust !== null && <span>Gust <b>{fmtNum(gust)} m/s</b></span>}
+            </div>
+          </div>
+        )}
 
         <div className="inspector-foot">
           Descriptive context from your data and the Beaufort scale — not an engineering recommendation.
