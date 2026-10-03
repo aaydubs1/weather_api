@@ -13,18 +13,23 @@ history of wind, temperature and pressure at the two Spanish Antarctic bases, an
 
 ### The stakeholder and the decision
 
-The credible internal customer is a **sustainability / infrastructure feasibility analyst**
-— the kind of profile an environmental and utilities company (GS Inima's world) would put
-on this — studying whether to invest in **on-site renewable (wind) generation to cut the
-base's diesel dependence**. Antarctic research stations run on diesel generators whose fuel
-is shipped or flown in at very high cost and environmental impact, and the bases operate
-only during the austral-summer campaign. The decision the tool must support is therefore
-one of **techno-economic feasibility**:
+The credible internal customer is a **business-development / feasibility team** — the kind of
+profile an environmental and utilities company that develops and operates infrastructure under
+concession (GS Inima's world) would put on this. Before committing investment, they
+**pre-screen a site**: could an **on-site wind system cut a remote base's diesel dependence**?
+Antarctic research stations run on diesel generators whose fuel is shipped or flown in at very
+high cost and environmental impact, and the bases operate only during the austral-summer
+campaign. A project **goes ahead only when both sides of viability are adequate** — which is
+the interviewer's own framing ("los sistemas funcionan si la viabilidad tanto técnica como
+económica es la adecuada"), and the spine of this tool's report:
 
-- *Technical:* is the wind resource strong, steady and inside a turbine's operating
+- **Technical viability:** is the wind resource strong, steady and inside a turbine's operating
   envelope **enough of the time** to generate reliably?
-- *Economic:* would the energy produced **displace enough diesel** to justify the
-  investment, including the premium of cold-climate hardware?
+- **Economic viability:** would the energy produced **displace enough diesel** (€, CO₂) to
+  justify the investment?
+
+The Antarctic bases are only the available data; the same screen is a **reusable method for
+any site**.
 
 ### Why these variables are exactly the right ones
 
@@ -88,12 +93,10 @@ direction summary, air-density-adjusted resource, temperature/icing operability,
 assumption-driven economic estimate). Whatever is not yet built is marked `TODO` and listed
 in §8, so this document separates clearly what runs today from the direction it is taking.
 
-**Wind is the core; solar is an opt-in extension.** The system the brief centres on is a
-*wind* turbine, so the report is wind-first by default. But the real business goal is cutting
-diesel, which in practice is done with **hybrids** — and the AEMET source already carries solar
-irradiance (`radWM2`) — so the app offers a **toggle** to add solar and model a wind + solar
-hybrid. Making it an explicit opt-in keeps the deliverable honest about its scope: the solar
-work is a reasoned extension of the business question, not a feature bolted onto the brief.
+**Scope kept to wind.** The brief names only turbines, so the deliverable stays on wind
+generation: the report is built around the turbine's operating thresholds and the economics of
+a wind system displacing diesel. Other generation sources are deliberately left out to keep the
+analysis focused and defensible against the brief.
 
 ## 2. Key technical challenges identified up front
 
@@ -190,13 +193,31 @@ the data, not just display it.**
 
 The app is organised around the business decision, not the raw endpoint. After a search it
 opens on **Feasibility** — a one-page report that reads top to bottom as the analysis would:
-wind resource (productive band, power curve vs wind distribution, wind rose) → solar and the
-**wind–solar hybrid** (complementarity) → operability (icing, air density, data quality) →
+the turbine's **operating-state breakdown** (with a wind-vs-temperature scatter) → the wind
+**resource summary** (productive band, wind rose) → the **power curve vs wind distribution** →
 the **economic estimate**. A second area, **Data**, holds the raw material behind that
 report: the time-series **charts** (with the point inspector) and the **table** (with
 exports). This separation — conclusion first, evidence a click away — is what makes the
 deliverable read as a decision-support tool rather than a data viewer, and it is why the
 default landing is the report, not the chart.
+
+The shell is a standard analytics-dashboard layout: a fixed **left sidebar** (brand +
+Report/Data navigation + a "current selection" context card showing station, range,
+aggregation and time zone) and a **content area** with a per-view **title bar** (page title,
+one-line purpose, date-range chip and the export/edit actions). The navigation and the current
+query live in the chrome, so each content card carries only its own analysis — which is what
+lets the report read cleanly for a professional audience. It collapses to a horizontal top bar
+below 860 px. The palette is unchanged (accent `#0e7490` teal on a `#f4f7fb` canvas); only the
+structure moved.
+
+A **right-hand guided tour** (`GuidePanel`) fills the remaining width on wide screens: an
+interactive, step-by-step onboarding whose steps are tailored to the active view. Advancing a
+step **scrolls the matching section into view and pulses it**, so the user learns the report by
+being walked through the real thing rather than reading a wall of text — keeping the report
+itself uncluttered (detailed definitions stay in the per-figure "i" tooltips). It has a progress
+bar, clickable step dots, Back/Next/Finish and Skip, remembers nothing it shouldn't, resets when
+the view changes, and is dismissable (re-openable from the top bar). It collapses away below
+1180 px, where the inline tooltips carry the help.
 
 ### 7.1 Search as a familiar, scannable header
 
@@ -231,15 +252,16 @@ any panel shows the value at the **same instant on all three**, so you compare w
 axis-scaling lie. A single **range slider at the top** zooms every panel at once (one
 control, one consistent window). Each panel can be **enlarged in a lightbox** for detail.
 
-### 7.4 Correlation as a deliberate, secondary task
+### 7.4 One-glance synthesis: the operating-threshold breakdown
 
-Overlaying the measurements *is* useful for spotting relationships (e.g. pressure drop vs
-wind rise), but it is a secondary, intentional question — not the default. So correlation
-lives behind a **"Correlate" action** that opens the combined multi-axis chart in a
-lightbox. If the current query has a single measurement, the button becomes **"Correlate
-with…"** and fetches the other series **on demand**, so the user never has to re-run the
-whole query. Keeping this out of the default view avoids clutter while leaving it one click
-away.
+The report opens with the decision made concrete: a **donut** of the turbine's operating state
+over the period — *generating* (wind in the 3–25 m/s band and temperature within limits) vs
+*stopped* (too weak, storm, or cold/icing) — with the "generating" share in the centre. That
+share is the **technical side of viability**; the caption ties it to the **economic** side
+below ("a system is viable only when both are adequate"). To show **where those numbers come
+from**, a **scatter** places every reading by its wind speed (x) and temperature (y) against
+the threshold lines, so you can see which readings fall inside the operating window. This
+replaces an invented composite score with a transparent, derived breakdown.
 
 ### 7.5 Showing mean / min / max without a rainbow
 
@@ -290,7 +312,7 @@ Both views are exportable so the data leaves the app in whatever shape the next 
   dependency (CSV carries a UTF-8 BOM so Excel renders `ºC` correctly). Excel uses **SheetJS
   loaded from a CDN on demand** — the library is fetched only if the user actually clicks
   Excel, so it adds nothing to the bundle and needs no install step.
-- **Charts → PNG, SVG.** Each panel (and the enlarged / correlation views) exports its live
+- **Charts → PNG, SVG.** Each panel (and the enlarged view) exports its live
   `<svg>`: SVG is serialized directly; PNG is rasterized via a canvas at 2× with a white
   background (the on-screen charts are transparent). No image library is pulled in.
 
@@ -331,26 +353,39 @@ without fabricating science that couldn't be defended.
 - **Wind direction (`ddd`) and gust (`velx`) — done:** both are pulled from the source,
   cached, and returned. Shown with wind speed; aggregation uses the **circular mean** for
   direction (degrees don't average arithmetically) and the **bucket maximum** for gust.
-- **Technical resource summary — done** (a third "Resource" view): % of time in the
-  productive wind band (3–25 m/s), a **wind rose** with direction steadiness (`dddstd`), mean
-  wind and steadiness (coefficient of variation), a **solar resource** card (mean irradiance
-  `radWM2` + indicative kWh/m²·day — opening a **wind + solar hybrid**, which is how Antarctic
-  bases actually cut diesel), an **icing-risk** indicator refined with humidity (`hr`): cold
-  *and* moist, not just sub-zero, temperature operability (below the −10 °C limit), **air
-  density** (ρ = P/RT, vs 1.225), and **data completeness**. All descriptive, against cited
-  references. Refinement TODO: speed-weight the wind rose and compute band/operability on
-  reading-level (None) data for precision.
-- **Economic estimate — done** (in the Resource view): each reading is mapped through a
+- **Operating-state breakdown & resource summary — done** (the **Feasibility** view): the
+  turbine's operating state over the period (generating vs stopped — too weak / storm / cold-
+  icing) with a **wind-vs-temperature scatter** showing the derivation; % of time in the
+  productive wind band (3–25 m/s); a **wind rose** with direction steadiness (`dddstd`); mean
+  wind and steadiness (coefficient of variation); an **icing-risk** indicator refined with
+  humidity (`hr`): cold *and* moist, not just sub-zero; temperature operability (below the
+  −10 °C limit); **air density** (ρ = P/RT, vs 1.225); and **data completeness**. All
+  descriptive, against cited references. Refinement TODO: speed-weight the wind rose and compute
+  band/operability on reading-level (None) data for precision.
+- **Economic estimate — done** (in the Feasibility view): each reading is mapped through a
   shared **power curve** (`feasibility.ts`, cubic cut-in→rated, flat to cut-out) to a
   **capacity factor** (computed per reading then averaged — never from the mean speed, since
-  power is convex). An **assumption-driven** model with user inputs (turbine kW, PV kWp,
-  diesel L/kWh, €/L, system cost) yields hybrid **wind + solar energy**, diesel displaced,
-  cost and CO₂ avoided, and an indicative payback. The capacity factor is **density-corrected**
-  (ρ = P/RT: cold, dense Antarctic air yields a little more power, capped at rated). Transparent
-  inputs, no single fabricated verdict. The wind chart also carries a green **"output potential"
-  overlay** — the same power curve applied over time, so the productive periods are visible at a
-  glance (and the band 3–25 m/s with cut-in/cut-out markers). The power-curve, capacity-factor and
-  correlation functions live in `feasibility.ts` and are **unit-tested** (Vitest).
+  power is convex). An **assumption-driven** model with user inputs (turbine kW, diesel L/kWh,
+  €/L, system cost) yields energy, diesel displaced, cost and CO₂ avoided, a cumulative/daily
+  **savings chart**, and an indicative payback. The capacity factor is **density-corrected**
+  (ρ = P/RT: cold, dense Antarctic air yields a little more power, capped at rated) — surfaced
+  explicitly ("+X% from air density"), which is how **pressure and temperature** enter the
+  turbine thresholds. Transparent inputs, no single fabricated verdict. The wind chart also
+  carries a green **"output potential" overlay** (the same power curve over time) with the band
+  3–25 m/s and cut-in/cut-out markers. The power-curve and capacity-factor functions live in
+  `feasibility.ts` and are **unit-tested** (Vitest).
+- **Decision metrics — LCOE + sensitivity (done):** on top of the raw savings, the economic
+  view reports the two numbers a feasibility analyst actually decides on — mirroring
+  **RETScreen**, the international standard for exactly this "technical + economic viability"
+  question. (1) A **levelized cost of energy (LCOE)** for the wind project — capex annualised by
+  the **capital recovery factor** (discount rate + economic life) plus O&M, over the annual
+  energy — shown **side-by-side with diesel's fuel cost per kWh**, so the decision reads directly
+  ("wind is €X/kWh cheaper"). Diesel's bar is fuel-only, deliberately conservative (it omits
+  genset capex/upkeep), so the real gap only widens. (2) A **sensitivity "tornado"**: the simple
+  payback recomputed with each uncertain input (diesel price, wind resource, system cost, diesel
+  L/kWh) swung ±30% in turn — the longest bars are the assumptions the decision hinges on. This
+  turns a static report into a **risk-aware decision tool**. `crf()` and `lcoe()` live in
+  `feasibility.ts` and are **unit-tested**.
 
 **Platform / robustness:**
 

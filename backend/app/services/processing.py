@@ -12,7 +12,7 @@ import pandas as pd
 
 from ..schemas import (
     Aggregation, DIR_STD_LABEL, FIELD_LABEL, GUST_LABEL, HUMIDITY_LABEL, Measurement,
-    SOLAR_LABEL, SOURCE_FIELD, WIND_DIR_LABEL,
+    SOURCE_FIELD, WIND_DIR_LABEL,
 )
 
 _FREQ = {Aggregation.hourly: "h", Aggregation.daily: "D", Aggregation.monthly: "MS"}
@@ -61,7 +61,7 @@ def parse_user_datetime(value: str, location: str | None, offset: str | None) ->
 
 def build_frame(rows: list[dict]) -> pd.DataFrame:
     """Turn raw AEMET rows into a UTC-indexed DataFrame with numeric columns."""
-    cols = ["temp", "pres", "vel", "dir", "velmax", "solar", "humidity", "dir_std"]
+    cols = ["temp", "pres", "vel", "dir", "velmax", "humidity", "dir_std"]
     if not rows:
         empty_index = pd.DatetimeIndex([], tz="UTC", name="Datetime")
         return pd.DataFrame(columns=cols, index=empty_index)
@@ -104,7 +104,6 @@ def process(
                 r = frame.iloc[i]
                 row[WIND_DIR_LABEL] = None if pd.isna(r["dir"]) else float(r["dir"])
                 row[GUST_LABEL] = None if pd.isna(r["velmax"]) else float(r["velmax"])
-                row[SOLAR_LABEL] = None if pd.isna(r["solar"]) else float(r["solar"])
                 row[HUMIDITY_LABEL] = None if pd.isna(r["humidity"]) else float(r["humidity"])
                 row[DIR_STD_LABEL] = None if pd.isna(r["dir_std"]) else float(r["dir_std"])
             result.append(row)
@@ -123,15 +122,14 @@ def process(
 
     # Wind extras need special aggregation: gust -> bucket maximum (the peak), direction ->
     # circular mean. They resample the same frame/freq, so buckets align positionally.
-    gust_max = dir_mean = solar_mean = hum_mean = dirstd_mean = None
+    gust_max = dir_mean = hum_mean = dirstd_mean = None
     if include_wind:
-        wind = frame[["dir", "velmax", "solar", "humidity", "dir_std"]].copy()
+        wind = frame[["dir", "velmax", "humidity", "dir_std"]].copy()
         if aggregation in (Aggregation.daily, Aggregation.monthly):
             wind.index = wind.index.tz_convert(ZoneInfo(station_tz))
         wgrouped = wind.resample(_FREQ[aggregation])
         gust_max = wgrouped["velmax"].max()
         dir_mean = wgrouped["dir"].apply(lambda s: _circular_mean_deg(s.values))
-        solar_mean = wgrouped["solar"].mean()
         hum_mean = wgrouped["humidity"].mean()
         dirstd_mean = wgrouped["dir_std"].mean()
 
@@ -147,10 +145,9 @@ def process(
             row[f"{label} max"] = None if pd.isna(high) else float(high)
         if include_wind:
             g, d = gust_max.iloc[i], dir_mean.iloc[i]
-            s_, h_, ds_ = solar_mean.iloc[i], hum_mean.iloc[i], dirstd_mean.iloc[i]
+            h_, ds_ = hum_mean.iloc[i], dirstd_mean.iloc[i]
             row[_PEAK_GUST_LABEL] = None if pd.isna(g) else float(g)
             row[WIND_DIR_LABEL] = None if (d is None or pd.isna(d)) else round(float(d), 1)
-            row[SOLAR_LABEL] = None if pd.isna(s_) else round(float(s_), 1)
             row[HUMIDITY_LABEL] = None if pd.isna(h_) else round(float(h_), 1)
             row[DIR_STD_LABEL] = None if pd.isna(ds_) else round(float(ds_), 1)
         result.append(row)

@@ -32,19 +32,33 @@ export function capacityFactor(winds: number[], densityRatio = 1): number {
   return winds.reduce((s, v) => s + Math.min(1, powerFraction(v) * densityRatio), 0) / winds.length;
 }
 
+export const HOURS_PER_YEAR = 8760;
+
 /**
- * Pearson correlation coefficient between two aligned series (e.g. wind vs solar for the
- * hybrid complementarity check). Returns null if undefined (fewer than 2 points, or a
- * constant series). Negative = the two tend to be strong at different times (complementary).
+ * Capital recovery factor: turns an up-front capex into an equivalent level annual payment
+ * over `years`, given an annual discount `rate` (e.g. 0.05). The standard finance formula
+ * behind a levelized cost. At rate 0 it degrades to a straight-line 1/years.
  */
-export function pearson(a: number[], b: number[]): number | null {
-  const n = Math.min(a.length, b.length);
-  if (n < 2) return null;
-  let sa = 0, sb = 0;
-  for (let i = 0; i < n; i++) { sa += a[i]; sb += b[i]; }
-  const ma = sa / n, mb = sb / n;
-  let num = 0, da = 0, db = 0;
-  for (let i = 0; i < n; i++) { const x = a[i] - ma, y = b[i] - mb; num += x * y; da += x * x; db += y * y; }
-  const den = Math.sqrt(da * db);
-  return den ? num / den : null;
+export function crf(rate: number, years: number): number {
+  if (years <= 0) return 0;
+  if (rate === 0) return 1 / years;
+  const f = Math.pow(1 + rate, years);
+  return (rate * f) / (f - 1);
+}
+
+/**
+ * Levelized cost of energy (currency per kWh): the constant price per kWh that recovers the
+ * capex (annualized via the CRF) plus yearly running cost, over the energy produced each year.
+ * This is the metric wind-feasibility tools (RETScreen and the like) compare against the
+ * alternative's cost per kWh — here, diesel. Returns Infinity when no energy is produced.
+ */
+export function lcoe(
+  capex: number,
+  annualOpex: number,
+  annualEnergyKWh: number,
+  rate: number,
+  years: number,
+): number {
+  if (annualEnergyKWh <= 0) return Infinity;
+  return (capex * crf(rate, years) + annualOpex) / annualEnergyKWh;
 }

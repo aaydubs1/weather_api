@@ -22,11 +22,10 @@ class MeasurementRow(Base):
     temp: Mapped[float | None] = mapped_column(Float, nullable=True)
     pres: Mapped[float | None] = mapped_column(Float, nullable=True)
     vel: Mapped[float | None] = mapped_column(Float, nullable=True)
-    # Feasibility extras: wind direction (°), gust (m/s), solar irradiance (W/m²),
-    # relative humidity (%), and wind-direction variability (°).
+    # Feasibility extras: wind direction (°), gust (m/s), relative humidity (%) and
+    # wind-direction variability (°).
     wind_dir: Mapped[float | None] = mapped_column(Float, nullable=True)
     gust: Mapped[float | None] = mapped_column(Float, nullable=True)
-    solar: Mapped[float | None] = mapped_column(Float, nullable=True)
     humidity: Mapped[float | None] = mapped_column(Float, nullable=True)
     dir_std: Mapped[float | None] = mapped_column(Float, nullable=True)
     nombre: Mapped[str | None] = mapped_column(String(128), nullable=True)

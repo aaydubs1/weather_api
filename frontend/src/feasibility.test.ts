@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CUT_IN, CUT_OUT, RATED, capacityFactor, pearson, powerFraction } from "./feasibility";
+import { CUT_IN, CUT_OUT, RATED, capacityFactor, crf, lcoe, powerFraction } from "./feasibility";
 
 describe("powerFraction (turbine power curve)", () => {
   it("is zero below cut-in and above cut-out", () => {
@@ -48,17 +48,38 @@ describe("capacityFactor", () => {
   });
 });
 
-describe("pearson (wind–solar complementarity)", () => {
-  it("is +1 for perfectly correlated series", () => {
-    expect(pearson([1, 2, 3], [2, 4, 6])).toBeCloseTo(1, 10);
+describe("crf (capital recovery factor)", () => {
+  it("degrades to straight-line 1/years at rate 0", () => {
+    expect(crf(0, 20)).toBeCloseTo(0.05, 10);
   });
 
-  it("is -1 for perfectly anti-correlated series (complementary)", () => {
-    expect(pearson([1, 2, 3], [6, 4, 2])).toBeCloseTo(-1, 10);
+  it("matches the textbook formula for a typical case", () => {
+    // 5% over 20 years -> ~0.08024.
+    expect(crf(0.05, 20)).toBeCloseTo(0.08024, 4);
   });
 
-  it("returns null for a constant series or too few points", () => {
-    expect(pearson([1, 2, 3], [5, 5, 5])).toBeNull();
-    expect(pearson([1], [2])).toBeNull();
+  it("is higher for a shorter horizon (more to recover per year)", () => {
+    expect(crf(0.05, 10)).toBeGreaterThan(crf(0.05, 20));
+  });
+
+  it("is 0 for a non-positive horizon", () => {
+    expect(crf(0.05, 0)).toBe(0);
+  });
+});
+
+describe("lcoe (levelized cost of energy)", () => {
+  it("recovers capex (via CRF) plus opex over annual energy", () => {
+    // capex 60000 @ CRF(0.05,20)=0.080243 -> 4814.6/yr, +1200 opex = 6014.6, /30000 kWh.
+    expect(lcoe(60000, 1200, 30000, 0.05, 20)).toBeCloseTo(0.2005, 3);
+  });
+
+  it("falls when more energy is produced", () => {
+    const lo = lcoe(60000, 1200, 60000, 0.05, 20);
+    const hi = lcoe(60000, 1200, 30000, 0.05, 20);
+    expect(lo).toBeLessThan(hi);
+  });
+
+  it("is Infinity when no energy is produced", () => {
+    expect(lcoe(60000, 1200, 0, 0.05, 20)).toBe(Infinity);
   });
 });

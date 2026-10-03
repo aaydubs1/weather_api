@@ -8,7 +8,7 @@ from app.main import app
 
 ROWS = [
     {"fhora": "2023-07-01T12:00:00+0000", "temp": "10.5", "pres": "980", "vel": "3",
-     "ddd": "180", "velx": "7", "radWM2": "350", "hr": "85", "dddstd": "5",
+     "ddd": "180", "velx": "7", "hr": "85", "dddstd": "5",
      "nombre": "Meteo Station Juan Carlos I"}
 ]
 URL = "/api/antartida/datos/fechaini/2023-07-01T00:00:00/fechafin/2023-07-01T23:59:59/estacion/juan_carlos_i"
@@ -74,7 +74,6 @@ def test_wind_direction_and_gust_flow_through(monkeypatch):
     row = response.json()["data"][0]
     assert row["Wind direction (°)"] == 180.0
     assert row["Gust (m/s)"] == 7.0
-    assert row["Solar irradiance (W/m²)"] == 350.0
     assert row["Humidity (%)"] == 85.0
 
 

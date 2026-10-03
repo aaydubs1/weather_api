@@ -4,16 +4,20 @@
 A full-stack service that retrieves, caches and aggregates historical weather data from the
 two **AEMET** Spanish Antarctic stations, built for the GS Inima Development Challenge.
 
-**The problem behind the problem.** Beyond "wrap the AEMET API", this tool is designed to
-support a real decision: whether **on-site wind generation could reduce a Spanish Antarctic
-base's reliance on diesel**. Those bases run on diesel generators whose fuel is shipped or
-flown in at high cost and environmental impact, so the question a sustainability /
-infrastructure analyst actually asks is one of **techno-economic feasibility** — is the wind
-resource strong, steady and within a turbine's operating envelope enough of the time
-(technical), and would it displace enough diesel to pay off (economic)? The three (really
-four) variables map directly onto turbine operating thresholds, which is why they are the
-right data to analyse. The full reasoning is in **[DESIGN.md §1](./DESIGN.md)**; the tool
-stays **decision-support, not a verdict** (see References for the cited thresholds).
+**Who asks for this, and why.** Beyond "wrap the AEMET API", this is a **wind pre-feasibility
+screen** for a **business-development / feasibility team**: before committing to a wind system
+that would cut a remote base's diesel dependence, they need to turn historical weather into a
+go/no-go-support read. A project goes ahead only when **both** sides of viability hold:
+
+- **Technical viability** — is the wind resource strong, steady and inside a turbine's
+  operating envelope (speed, temperature/icing, air density) enough of the time to generate?
+- **Economic viability** — would it displace enough diesel (€, CO₂) to pay off?
+
+The report is built around exactly those two gates. The four AEMET variables map directly onto
+the turbine's operating thresholds, which is why they are the right data; the Antarctic bases
+are the available data, but the method is a **reusable screen for any site**. Full reasoning in
+**[DESIGN.md §1](./DESIGN.md)**; the tool stays **decision-support, not a verdict** (see
+References for the cited thresholds).
 
 - **Backend:** Python · FastAPI · pandas · SQLAlchemy (SQLite)
 - **Frontend:** React · TypeScript · Vite · Recharts
@@ -160,12 +164,11 @@ in winter). For aggregated queries each measurement includes `mean`, `min` and `
 (the business case is about extremes, not just averages — see DESIGN.md).
 
 When wind **speed** is included (or no filter is given), each row also carries the extras the
-feasibility layer needs: `Wind direction (°)`, `Gust (m/s)`, `Solar irradiance (W/m²)`,
-`Humidity (%)` and `Direction variability (°)`. In aggregated views direction is the
-**circular mean** (350° and 10° average to 0°, not 180°), gust becomes the bucket's `Peak
-gust (m/s)`, and the rest are bucket means. Units are **m/s** for wind (AEMET observation
-products; verified — see DESIGN §1). These map to the real AEMET Antarctic field names
-(`ddd`, `velx`, `radWM2`, `hr`, `dddstd`).
+feasibility layer needs: `Wind direction (°)`, `Gust (m/s)`, `Humidity (%)` and
+`Direction variability (°)`. In aggregated views direction is the **circular mean** (350° and
+10° average to 0°, not 180°), gust becomes the bucket's `Peak gust (m/s)`, and the rest are
+bucket means. Units are **m/s** for wind (AEMET observation products; verified — see DESIGN
+§1). These map to the real AEMET Antarctic field names (`ddd`, `velx`, `hr`, `dddstd`).
 
 ### Tests
 
@@ -176,11 +179,11 @@ pytest -q
 
 The tests cover time-zone parsing, the DST boundary (summer `+02:00` vs winter `+01:00`),
 hourly/daily aggregation (daily bucketed by the station's local day), the wind extras
-(circular-mean direction, peak gust, solar/humidity), the two-step AEMET flow (mocked, with
-a transient-503 retry case), the endpoint, and the cache (hit **and** miss).
+(circular-mean direction, peak gust, humidity), the two-step AEMET flow (mocked, with a
+transient-503 retry case), the endpoint, and the cache (hit **and** miss).
 
-The frontend's business logic is unit-tested too (power curve, capacity factor, wind–solar
-correlation):
+The frontend's business logic is unit-tested too (power curve, density-corrected capacity
+factor):
 
 ```bash
 cd frontend
@@ -204,8 +207,8 @@ UX highlights (the reasoning is in **DESIGN.md §7**):
   in the austral summer, the UI steers you to ranges that actually have data instead of
   letting you hit an empty result.
 - **Feasibility report first:** the app opens on the business conclusion, organised top to
-  bottom (wind resource → solar & hybrid → operability → economics), with the raw charts and
-  table one click away under **Data**.
+  bottom (operating thresholds → wind resource → power curve → economics), with the raw charts
+  and table one click away under **Data**.
 - In **Data → Charts**, **three linked panels** (one per measurement) with a **synchronized
   cursor** and a shared **range slider**, so you read all measurements at the same instant
   without cramming different units onto one misleading axis. Any panel enlarges in a lightbox.
@@ -216,15 +219,21 @@ UX highlights (the reasoning is in **DESIGN.md §7**):
 - **Point inspector:** click any point to compare that instant to the whole period on a
   min–max scale (percentile, period average) with plain-language findings using standard
   references (Beaufort scale, freezing point) — deliberately descriptive, not a recommendation.
-- **Feasibility report** contents: % of time in the productive wind band (3–25 m/s), a
-  **power curve vs wind distribution** chart, a **wind rose** with direction steadiness, a
-  **solar resource** card and a **wind–solar complementarity** chart (does solar fill the
-  wind's gaps? → the hybrid case), an **icing-risk** indicator (sub-zero *and* humid),
-  temperature operability, air density vs standard, data completeness, and an **economic
-  estimate** with adjustable assumptions (turbine kW, PV kWp, diesel price…) → a wind
-  **capacity factor**, hybrid energy, diesel displaced, cost and CO₂ avoided, and an
-  indicative payback. Every figure carries an **"i"** explaining it; all against cited
-  references (§1 and References), as decision-support rather than a verdict.
+- **Feasibility report** contents: a **turbine operating-state** breakdown (generating vs
+  stopped — too weak / storm / cold-icing) with a **wind-vs-temperature scatter** showing how
+  each reading is classified against the thresholds; % of time in the productive wind band
+  (3–25 m/s); a **power curve vs wind distribution** chart; a **wind rose** with direction
+  steadiness; an **icing-risk** indicator (sub-zero *and* humid), temperature operability and
+  **air density** (how pressure + temperature lift the capacity factor); data completeness; and
+  an **economic estimate** with adjustable assumptions (turbine kW, diesel price, system cost,
+  economic life, discount rate) → a density-corrected **capacity factor**, energy, diesel
+  displaced, cost and CO₂ avoided, and a cumulative/daily **savings chart**. The decision metric
+  is a **levelized cost of energy (LCOE)** for the wind project shown side-by-side with diesel's
+  cost per kWh (the standard comparison in feasibility tools such as RETScreen), plus a **simple
+  payback** and a **sensitivity "tornado"** showing how far the payback moves when each uncertain
+  input is varied ±30% — i.e. how robust the decision is. Every figure carries an **"i"**
+  explaining it; all against cited references (§1 and References), as decision-support rather
+  than a verdict.
 - Sensible defaults, explicit loading / empty / error states, units in headers, and the
   time zone made explicit — timestamps keep the backend's CET/CEST offset verbatim.
 
@@ -272,5 +281,9 @@ tool reports against these references and never claims an engineering verdict.
   [The Missing Link Between Air Density and Wind Power Production](https://www.technologyreview.com/2011/03/15/196333/the-missing-link-between-air-density-and-wind-power-production/)
 - **Precedent for techno-economic renewable analysis in Antarctica:**
   [Techno-economic analysis of renewable energy generation at the South Pole](https://arxiv.org/pdf/2306.13552)
+- **Techno-economic methodology — LCOE, payback and sensitivity/risk analysis** (the model
+  this tool's economic view mirrors): RETScreen, the international clean-energy feasibility
+  standard — [NRCan RETScreen](https://natural-resources.canada.ca/energy-efficiency/retscreen) ·
+  [Global Wind Atlas — Weibull-based resource assessment & capacity factor](https://journals.ametsoc.org/view/journals/bams/104/8/BAMS-D-21-0075.1.xml)
 - **AEMET source fields** (the Antarctic dataset provides wind direction `ddd` and gust `velx`):
   [AEMET observation field help](https://www.aemet.es/en/eltiempo/observacion/ultimosdatos/ayuda)

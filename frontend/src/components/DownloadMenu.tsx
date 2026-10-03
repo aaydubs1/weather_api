@@ -25,7 +25,7 @@ export function DownloadMenu({
     <div className="dl">
       <button
         type="button"
-        className={variant === "icon" ? "expand-btn" : "corr-btn"}
+        className={variant === "icon" ? "expand-btn" : "menu-btn"}
         onClick={() => setOpen((o) => !o)}
         title={title}
         aria-haspopup="menu"
@@ -35,8 +35,8 @@ export function DownloadMenu({
       </button>
       {open && (
         <>
-          <div className="corr-backdrop" onClick={() => setOpen(false)} />
-          <div className="corr-menu" role="menu">
+          <div className="menu-backdrop" onClick={() => setOpen(false)} />
+          <div className="menu-list" role="menu">
             {items.map((it) => (
               <button
                 type="button"

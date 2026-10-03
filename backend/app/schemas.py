@@ -33,7 +33,6 @@ FIELD_LABEL: dict[Measurement, str] = {
 # in degrees (0–360, meteorological: where the wind comes from); gust is in m/s.
 WIND_DIR_LABEL = "Wind direction (°)"
 GUST_LABEL = "Gust (m/s)"
-# Environmental extras for the feasibility layer (solar enables a wind+solar hybrid story).
-SOLAR_LABEL = "Solar irradiance (W/m²)"
+# Environmental extras for the feasibility layer.
 HUMIDITY_LABEL = "Humidity (%)"
 DIR_STD_LABEL = "Direction variability (°)"

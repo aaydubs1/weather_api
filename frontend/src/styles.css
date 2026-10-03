@@ -19,11 +19,127 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-.app { max-width: 1200px; margin: 0 auto; padding: 24px 20px 60px; }
-.header h1 { margin: 0 0 4px; font-size: 26px; }
-.header p { margin: 0 0 20px; color: var(--muted); }
+/* ===== Dashboard shell: fixed sidebar + scrolling content ===== */
+.shell { display: flex; min-height: 100vh; align-items: stretch; }
 
-.layout { display: flex; flex-direction: column; gap: 18px; }
+.sidebar {
+  position: sticky; top: 0; align-self: flex-start;
+  width: 244px; flex: none; height: 100vh;
+  background: #fff; border-right: 1px solid var(--line);
+  padding: 20px 16px; display: flex; flex-direction: column; gap: 22px;
+}
+.brand { display: flex; align-items: center; gap: 11px; padding: 2px 4px; }
+.brand-mark { width: 36px; height: 36px; flex: none; border-radius: 9px; box-shadow: var(--shadow); }
+.brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+.brand-text strong { font-size: 15px; color: var(--ink); }
+.brand-text span { font-size: 11.5px; color: var(--muted); }
+
+.nav { display: flex; flex-direction: column; gap: 3px; }
+.nav-group {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+  color: #94a3b8; padding: 10px 10px 4px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  border: none; background: transparent; cursor: pointer; text-align: left;
+  padding: 9px 11px; border-radius: 9px; font-size: 14px; font-weight: 600; color: var(--muted);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.nav-item .nav-dot { width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; flex: none; transition: background 0.12s ease; }
+.nav-item:hover { background: #f0fbff; color: var(--accent); }
+.nav-item.on { background: #ecfeff; color: var(--accent); }
+.nav-item.on .nav-dot { background: var(--accent); }
+
+.side-context { margin-top: auto; border: 1px solid var(--line); border-radius: 12px; padding: 12px 13px; background: #fbfdff; }
+.sc-title { font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: #94a3b8; margin-bottom: 8px; }
+.sc-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 4px 0; font-size: 12px; }
+.sc-row span { color: var(--muted); flex: none; }
+.sc-row b { color: var(--ink); text-align: right; font-weight: 600; }
+.side-foot { font-size: 10.5px; color: #94a3b8; line-height: 1.5; padding: 0 4px; }
+
+.content { flex: 1 1 auto; min-width: 0; max-width: 1160px; padding: 24px 28px 60px; }
+
+/* ===== Right-hand contextual guide rail ===== */
+.guide {
+  position: sticky; top: 0; align-self: flex-start;
+  /* Fill whatever width is left after the sidebar + content, instead of a fixed rail. */
+  flex: 1 1 340px; min-width: 300px; height: 100vh; overflow-y: auto;
+  background: #fff; border-left: 1px solid var(--line);
+  padding: 22px 24px 40px;
+}
+/* The readable column: capped and centred, so a wide guide area stays legible. */
+.guide-inner { max-width: 440px; margin: 0 auto; }
+.guide-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.guide-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--accent);
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.guide-title::before { content: "🧭"; font-size: 14px; }
+.guide-close { border: none; background: #f1f5f9; width: 26px; height: 26px; border-radius: 7px; cursor: pointer; font-size: 17px; color: var(--muted); line-height: 1; }
+.guide-close:hover { background: #e2e8f0; color: var(--ink); }
+
+/* Progress bar + step counter */
+.guide-progress { height: 5px; border-radius: 999px; background: #eef4f8; overflow: hidden; }
+.guide-progress span { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.3s ease; }
+.guide-stepmeta { font-size: 10.5px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; color: #94a3b8; margin: 9px 0 12px; }
+
+/* The step card */
+.guide-card { border: 1px solid var(--line); border-radius: 12px; padding: 15px 16px; background: #fbfdff; }
+.guide-step-title { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; color: var(--ink); }
+.guide-num {
+  flex: none; width: 23px; height: 23px; border-radius: 50%; background: var(--accent); color: #fff;
+  font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;
+}
+.guide-step-body { margin: 11px 0 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+.guide-step-body b { color: var(--ink); font-weight: 600; }
+.guide-tip {
+  margin-top: 12px; padding: 10px 12px; border-radius: 9px; background: #ecfeff; border: 1px solid #cffafe;
+  font-size: 12px; line-height: 1.5; color: var(--ink);
+}
+.guide-tip b { color: var(--accent); margin-right: 4px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.4px; }
+.guide-tip b::before { content: "💡 "; }
+
+/* Dots + navigation */
+.guide-dots { display: flex; justify-content: center; gap: 7px; margin: 16px 0; }
+.guide-dot { width: 8px; height: 8px; border-radius: 50%; border: none; background: #d7e2ec; cursor: pointer; padding: 0; transition: background 0.15s ease, transform 0.15s ease; }
+.guide-dot:hover { background: #b6c6d4; }
+.guide-dot.on { background: var(--accent); transform: scale(1.25); }
+.guide-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.guide-btn { border-radius: 9px; padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--line); }
+.guide-btn.ghost { background: #fff; color: var(--muted); }
+.guide-btn.ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.guide-btn.ghost:disabled { opacity: 0.4; cursor: default; }
+.guide-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); margin-left: auto; }
+.guide-btn.primary:hover { background: #0b5f76; }
+.guide-skip { display: block; margin: 14px auto 0; border: none; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; text-decoration: underline; }
+.guide-skip:hover { color: var(--accent); }
+
+/* The pulse applied to the section the current step points at */
+.tour-highlight {
+  animation: tourpulse 1.8s ease-out;
+  border-radius: 12px;
+}
+@keyframes tourpulse {
+  0% { box-shadow: 0 0 0 0 rgba(14, 116, 144, 0.0); }
+  18% { box-shadow: 0 0 0 4px rgba(14, 116, 144, 0.35); }
+  100% { box-shadow: 0 0 0 4px rgba(14, 116, 144, 0.0); }
+}
+
+.topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+.topbar-text h1 { margin: 0 0 4px; font-size: 24px; letter-spacing: -0.2px; }
+.topbar-text p { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 640px; }
+.topbar-actions { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.date-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border: 1px solid var(--line); border-radius: 9px;
+  background: #fff; font-size: 13px; font-weight: 600; color: var(--ink);
+}
+
+/* Elevated content card (the dashboard surface) */
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 22px 24px;
+}
 
 /* ---- Top search toolbar (Skyscanner style) ---- */
 .toolbar {
@@ -63,7 +179,7 @@ body {
 /* Bordered controls make the vertical dividers redundant. */
 .tb-divider { display: none; }
 
-/* Custom dropdown (Station / Aggregation): themed open list matching the Correlate menu,
+/* Custom dropdown (Station / Aggregation): themed open list to match the app's menus,
    because a native <select> popup cannot be styled with CSS. */
 .tb-select { position: relative; display: inline-flex; }
 .tb-select-btn { display: inline-flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; }
@@ -219,9 +335,9 @@ body {
 .expand-btn { border: none; background: transparent; cursor: pointer; color: var(--muted); font-size: 16px; line-height: 1; padding: 3px 7px; border-radius: 7px; }
 .expand-btn:hover { background: #f1f5f9; color: var(--accent); }
 
-/* Download dropdown wrapper (reuses .corr-menu / .corr-backdrop for the list). */
+/* Download dropdown wrapper. */
 .dl { position: relative; display: inline-flex; }
-.dl .corr-menu { min-width: 132px; }
+.dl .menu-list { min-width: 132px; }
 
 /* ---- Lightbox (enlarged chart) ---- */
 .lightbox-backdrop {
@@ -257,22 +373,40 @@ body {
 }
 .report-headline b { color: var(--ink); font-size: 16px; margin-left: 2px; }
 .section-title { font-size: 15px; font-weight: 700; color: var(--ink); margin: 26px 0 12px; display: flex; align-items: center; gap: 6px; }
+/* The two viability gates — the spine of the report */
+.viability-title {
+  font-size: 18px; font-weight: 700; color: var(--accent);
+  margin: 30px 0 4px; padding-bottom: 8px; border-bottom: 2px solid #cffafe;
+}
+.viability-title:first-of-type { margin-top: 20px; }
+.viability-read {
+  margin-top: 22px; padding: 12px 18px; border-radius: 12px; background: #0f2233;
+  color: #e2e8f0; display: flex; flex-wrap: wrap; align-items: center; gap: 24px; font-size: 13px;
+}
+.viability-read em { font-style: normal; color: #94a3b8; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.4px; margin-right: 7px; }
+.viability-read b { color: #fff; font-size: 16px; }
+.viability-read .vr-note { color: #94a3b8; margin-left: auto; font-size: 12px; }
 
-/* Solar opt-in switch (wind is the core; solar is an explicit hybrid add-on) */
-.solar-toggle { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; color: var(--ink); margin: 0 0 14px; user-select: none; }
-.solar-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
-.solar-switch { position: relative; width: 38px; height: 22px; border-radius: 999px; background: #cbd5e1; transition: background 0.15s ease; flex: none; }
-.solar-knob { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.15s ease; box-shadow: 0 1px 2px rgba(15, 34, 51, 0.2); }
-.solar-toggle input:checked + .solar-switch { background: var(--accent); }
-.solar-toggle input:checked + .solar-switch .solar-knob { transform: translateX(16px); }
-.solar-toggle input:focus-visible + .solar-switch { outline: 2px solid var(--accent); outline-offset: 2px; }
 .econ-sub { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
 .resource-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; align-items: start; }
 .res-unit { font-size: 13px; font-weight: 500; color: var(--muted); }
 /* Full-width chart cards in the feasibility report */
 .res-card.wide { margin-top: 0; }
-.density-link { font-size: 12.5px; line-height: 1.5; color: var(--muted); margin: 10px 2px 2px; padding-top: 10px; border-top: 1px solid var(--line); }
-.density-link b { color: var(--accent); }
+/* Operating-state donut + legend */
+.opstate { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+.opstate-donut { position: relative; width: 200px; height: 200px; flex: none; }
+.donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.donut-center b { font-size: 28px; font-weight: 700; color: var(--accent); line-height: 1; }
+.donut-center span { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.opstate-legend { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 220px; }
+.opstate-legend li { display: flex; align-items: center; gap: 9px; padding: 7px 0; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); }
+.opstate-legend li:first-child { border-top: none; }
+.opstate-legend li b { margin-left: auto; color: var(--ink); font-size: 15px; }
+.opstate-legend i { width: 11px; height: 11px; border-radius: 2px; flex: none; margin-top: 4px; align-self: flex-start; }
+.opstate-name { display: flex; flex-direction: column; }
+.opstate-name em { font-style: normal; font-size: 11px; color: #94a3b8; }
+.caveat-line { font-size: 11.5px; color: #b45309; font-weight: 600; margin: 12px 2px 0; }
+
 .compl-head { font-size: 13px; color: var(--ink); margin: 0 0 8px; }
 .compl-head b { color: var(--accent); margin: 0 4px; }
 .compl-verdict { color: var(--muted); display: block; margin-top: 2px; font-size: 12px; }
@@ -320,15 +454,23 @@ body {
 .econ-sliders label b { color: var(--ink); font-size: 14px; }
 .econ-sliders input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
 
-.energy-mix { margin: 4px 0 18px; }
+.econ-chart { margin: 4px 0 18px; }
+
+/* Levelized cost of energy comparison (wind vs diesel) — the headline economic metric */
+.lcoe { margin: 2px 0 18px; }
+.lcoe-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+.lcoe-name { flex: 0 0 132px; font-size: 12.5px; color: var(--muted); }
+.lcoe-track { flex: 1; height: 16px; background: #eef4f8; border-radius: 6px; overflow: hidden; min-width: 80px; }
+.lcoe-fill { display: block; height: 100%; border-radius: 6px; transition: width 0.2s ease; }
+.lcoe-fill.wind { background: var(--accent); }
+.lcoe-fill.diesel { background: #94a3b8; }
+.lcoe-val { flex: 0 0 auto; font-size: 15px; color: var(--ink); min-width: 54px; text-align: right; }
+.lcoe-read { font-size: 13px; color: var(--ink); margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; }
+.lcoe-read.good { background: #ecfeff; border: 1px solid #cffafe; }
+.lcoe-read.bad { background: #fef2f2; border: 1px solid #fecaca; }
+.lcoe-read b { color: var(--accent); }
+.lcoe-read.bad b { color: var(--error); }
 .mix-label { font-size: 11px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-.mix-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #eef4f8; }
-.mix-seg.wind { background: #0e7490; }
-.mix-seg.solar { background: #f59e0b; }
-.mix-legend { display: flex; gap: 18px; margin-top: 8px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
-.mix-legend .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 6px; vertical-align: middle; }
-.mix-legend .dot.wind { background: #0e7490; }
-.mix-legend .dot.solar { background: #f59e0b; }
 .econ-inputs { display: flex; flex-wrap: wrap; gap: 14px; margin: 12px 0 16px; }
 .econ-inputs label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 600; color: var(--muted); }
 .econ-inputs input {
@@ -377,8 +519,30 @@ th.sortable.active .th-arrow { color: var(--accent); }
   .tb-field:last-of-type { border-bottom: none; }
   .tb-submit { margin: 8px 0 0; width: 100%; }
 }
+/* No room for the right rail -> drop it (the "i" tooltips still cover inline help) */
+@media (max-width: 1180px) {
+  .guide { display: none; }
+  .guide-toggle { display: none; }
+  .content { max-width: none; }
+}
+
+/* Sidebar -> horizontal top bar on narrow screens */
+@media (max-width: 860px) {
+  .shell { flex-direction: column; }
+  .sidebar {
+    position: static; width: auto; height: auto; flex-direction: row; align-items: center;
+    gap: 14px; padding: 12px 16px; border-right: none; border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+  }
+  .nav { flex-direction: row; align-items: center; gap: 4px; }
+  .nav-group { display: none; }
+  .nav-item { padding: 7px 12px; white-space: nowrap; }
+  .side-context, .side-foot { display: none; }
+  .content { max-width: none; padding: 18px 16px 48px; }
+}
 @media (max-width: 640px) {
-  .app { padding: 18px 14px 48px; }
+  .content { padding: 16px 12px 44px; }
+  .card { padding: 16px 14px; }
   .rdp-months { flex-wrap: wrap; }
   .backdrop { background: rgba(15, 34, 51, 0.28); z-index: 55; }
   .popover { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(92vw, 360px); max-height: 86vh; overflow: auto; z-index: 60; }
@@ -405,7 +569,8 @@ th.sortable.active .th-arrow { color: var(--accent); }
 .infotip:focus .infotip-bubble { opacity: 1; visibility: visible; }
 
 /* Collapsible filters + top zoom slider */
-.toolbar-wrap.hidden { display: none; }
+.toolbar-wrap { margin-bottom: 18px; }
+.toolbar-wrap.hidden { display: none; margin: 0; }
 .reopen-btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 7px 14px; border: 1px solid var(--line); background: #fff; border-radius: 9px;
@@ -439,26 +604,25 @@ th.sortable.active .th-arrow { color: var(--accent); }
 .wx-brush .recharts-brush-traveller:focus-visible { outline: none; }
 .wx-brush .recharts-brush-texts text { fill: var(--muted); font-size: 10px; font-weight: 600; }
 
-/* ---- Correlate action (results head) ---- */
-.head-actions { display: inline-flex; align-items: center; gap: 10px; }
-.correlate { position: relative; display: inline-flex; }
-.corr-btn {
+/* ---- Results-head actions + the dropdown menu (download) ---- */
+.head-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.menu-btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 7px 14px; border: 1px solid var(--line); border-radius: 9px;
   background: #fff; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer;
   transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
 }
-.corr-btn:hover { background: #f0fbff; border-color: var(--accent); color: var(--accent); }
-.corr-btn:disabled { opacity: 0.55; cursor: default; }
-.corr-backdrop { position: fixed; inset: 0; z-index: 80; }
-.corr-menu {
+.menu-btn:hover { background: #f0fbff; border-color: var(--accent); color: var(--accent); }
+.menu-btn:disabled { opacity: 0.55; cursor: default; }
+.menu-backdrop { position: fixed; inset: 0; z-index: 80; }
+.menu-list {
   position: absolute; top: 100%; right: 0; margin-top: 6px; z-index: 90;
   background: #fff; border: 1px solid var(--line); border-radius: 10px;
   box-shadow: var(--shadow); padding: 5px; min-width: 168px;
   display: flex; flex-direction: column;
 }
-.corr-menu button {
+.menu-list button {
   text-align: left; border: none; background: transparent; cursor: pointer;
   padding: 8px 11px; border-radius: 7px; font-size: 13px; color: var(--ink);
 }
-.corr-menu button:hover { background: #ecfeff; color: var(--accent); }
+.menu-list button:hover { background: #ecfeff; color: var(--accent); }

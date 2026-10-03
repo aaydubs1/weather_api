@@ -10,9 +10,9 @@ def _raw(fhora, temp=None):
     return {"fhora": fhora, "temp": temp, "pres": None, "vel": None, "nombre": "Station"}
 
 
-def _wind(fhora, vel=None, direction=None, velmax=None, solar=None, humidity=None, dir_std=None):
+def _wind(fhora, vel=None, direction=None, velmax=None, humidity=None, dir_std=None):
     return {"fhora": fhora, "temp": None, "pres": None, "vel": vel,
-            "dir": direction, "velmax": velmax, "solar": solar, "humidity": humidity,
+            "dir": direction, "velmax": velmax, "humidity": humidity,
             "dir_std": dir_std, "nombre": "Station"}
 
 
@@ -84,10 +84,9 @@ def test_raw_includes_wind_direction_and_gust():
     assert out[0]["Gust (m/s)"] == 8.0
 
 
-def test_raw_includes_solar_humidity_dirstd():
-    row = _wind("2023-07-01T12:00:00+0000", "5", "90", "8", solar="420", humidity="88", dir_std="6")
+def test_raw_includes_humidity_and_direction_variability():
+    row = _wind("2023-07-01T12:00:00+0000", "5", "90", "8", humidity="88", dir_std="6")
     out = _process_speed([row], Aggregation.none)
-    assert out[0]["Solar irradiance (W/m²)"] == 420.0
     assert out[0]["Humidity (%)"] == 88.0
     assert out[0]["Direction variability (°)"] == 6.0
 
